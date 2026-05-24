@@ -26,11 +26,11 @@
     .value.large { font-size:28px; }
     .sku-card { font-size:13px; font-weight:700; letter-spacing:.02em; color:rgba(238,242,255,.78); }
     .name-card { font-size:22px; font-weight:900; line-height:1.2; color:var(--text); }
-    .result-card { padding:22px; border-radius:16px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); }
-    .result-sku { font-size:18px; font-weight:500; color:rgba(238,242,255,.92); line-height:1.15; }
-    .result-name { margin-top:10px; font-size:clamp(24px, 4.7vw, 42px); font-weight:900; line-height:1.05; color:rgba(238,242,255,.78); text-transform:uppercase; }
-    .stock-chips { display:flex; flex-wrap:wrap; gap:14px; margin-top:24px; }
-    .stock-chip { display:inline-flex; align-items:center; min-height:56px; padding:12px 22px; border-radius:24px; background:rgba(255,255,255,.16); color:rgba(238,242,255,.9); font-size:clamp(18px, 3.8vw, 30px); font-weight:700; line-height:1; }
+    .result-card { padding:16px; border-radius:14px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); }
+    .result-sku { font-size:15px; font-weight:600; color:rgba(238,242,255,.9); line-height:1.2; }
+    .result-name { margin-top:8px; font-size:24px; font-weight:900; line-height:1.12; color:rgba(238,242,255,.78); text-transform:uppercase; }
+    .stock-chips { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+    .stock-chip { display:inline-flex; align-items:center; min-height:40px; padding:9px 16px; border-radius:18px; background:rgba(255,255,255,.16); color:rgba(238,242,255,.9); font-size:18px; font-weight:700; line-height:1; }
     .status { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; font-size:13px; font-weight:700; margin-bottom:12px; }
     .ok { background:rgba(52,211,153,.12); color:#34d399; }
     .empty { background:rgba(248,113,113,.12); color:#f87171; }
@@ -49,9 +49,9 @@
     .pager .ghost { background:rgba(255,255,255,.06); color:var(--text); border:1px solid rgba(255,255,255,.14); }
     @media (max-width:840px) {
       .grid { grid-template-columns:1fr; }
-      .result-card { padding:18px; }
-      .result-name { font-size:clamp(22px, 7vw, 34px); }
-      .stock-chip { min-height:48px; border-radius:20px; padding:10px 18px; }
+      .result-card { padding:14px; }
+      .result-name { font-size:20px; }
+      .stock-chip { min-height:36px; border-radius:16px; padding:8px 14px; font-size:16px; }
     }
   </style>
 </head>
