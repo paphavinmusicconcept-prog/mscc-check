@@ -44,6 +44,7 @@
       <div style="color:var(--accent); font-size:12px; letter-spacing:.08em; text-transform:uppercase;">MSCC Check</div>
       <h1>เช็คสต็อกสินค้า</h1>
       <p class="sub">ทดสอบค้นหา SKU เต็ม, SKU บางส่วน หรือชื่อสินค้า</p>
+      <div id="source-badge" class="status" style="margin-top:14px;">แหล่งข้อมูล: %%INITIAL_SOURCE_LABEL%%</div>
     </section>
 
     <div class="grid">
@@ -87,6 +88,7 @@
   <script>
     const initialResult = %%INITIAL_RESULT%%;
     const initialError = "%%INITIAL_ERROR%%";
+    const initialSource = "%%INITIAL_SOURCE%%";
     const form = document.getElementById('search-form');
     const queryInput = document.getElementById('query');
     const skuValue = document.getElementById('sku-value');
@@ -94,8 +96,17 @@
     const availableStock = document.getElementById('available-stock');
     const resultSlot = document.getElementById('result-slot');
     const errorSlot = document.getElementById('error-slot');
+    const sourceBadge = document.getElementById('source-badge');
     let currentQuery = queryInput.value || '';
     let currentPage = 1;
+
+    const sourceLabel = initialSource === 'github' ? 'GitHub' : 'Local';
+    const loadingText = initialSource === 'github' ? 'กำลังโหลดจาก GitHub...' : 'กำลังโหลดข้อมูล...';
+
+    function setSourceBadge(source) {
+      const label = String(source || '').toLowerCase() === 'github' ? 'GitHub' : 'Local';
+      sourceBadge.textContent = `แหล่งข้อมูล: ${label}`;
+    }
 
     function escapeHtml(value) {
       return String(value ?? '')
@@ -146,6 +157,7 @@
     }
 
     function renderResult(data) {
+      setSourceBadge(data.source || initialSource);
       if (data.matches && data.matches.length > 1) {
         const total = Number(data.total_matches || data.matches.length);
         const shown = Number(data.shown_matches || data.matches.length);
@@ -194,7 +206,7 @@
       }
 
       errorSlot.innerHTML = '';
-      resultSlot.innerHTML = '<div class="status">กำลังค้นหา...</div>';
+      resultSlot.innerHTML = `<div class="status">${escapeHtml(loadingText)}</div>`;
 
       const response = await fetch(`/search?sku=${encodeURIComponent(value)}&page=${encodeURIComponent(page)}`);
       const payload = await response.json();
@@ -225,7 +237,10 @@
 
     if (initialError) errorSlot.innerHTML = `<div class="error">${escapeHtml(initialError)}</div>`;
     if (initialResult) renderResult(initialResult);
-    else renderEmpty('');
+    else {
+      setSourceBadge(initialSource);
+      renderEmpty('');
+    }
   </script>
 </body>
 </html>

@@ -260,11 +260,14 @@ function search(query, catalog, page = 1) {
   return null;
 }
 
-function renderIndex({ sku = '', result = null, error = '' }) {
+function renderIndex({ sku = '', result = null, error = '', source = CSV_SOURCE }) {
+  const sourceLabel = source === 'github' ? 'GitHub' : 'Local';
   return INDEX_HTML
     .replaceAll('%%INITIAL_SKU%%', sku.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'))
     .replaceAll('%%INITIAL_RESULT%%', result ? JSON.stringify(result) : 'null')
-    .replaceAll('%%INITIAL_ERROR%%', error.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'));
+    .replaceAll('%%INITIAL_ERROR%%', error.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'))
+    .replaceAll('%%INITIAL_SOURCE%%', source)
+    .replaceAll('%%INITIAL_SOURCE_LABEL%%', sourceLabel);
 }
 
 let cache = { fingerprint: '', loadedAt: 0, catalog: new Map(), inventory: [] };
@@ -334,7 +337,7 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: true, rows: state.inventory.length, skus: state.catalog.size }));
+    res.end(JSON.stringify({ ok: true, rows: state.inventory.length, skus: state.catalog.size, source: CSV_SOURCE }));
     return;
   }
 
@@ -349,7 +352,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(result));
+    res.end(JSON.stringify({ ...result, source: CSV_SOURCE }));
     return;
   }
 
@@ -360,7 +363,7 @@ const server = http.createServer(async (req, res) => {
     const initialResult = initialSku ? search(initialSku, state.catalog, page) : null;
 
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(renderIndex({ sku: initialSku, result: initialResult, error: initialError }));
+    res.end(renderIndex({ sku: initialSku, result: initialResult, error: initialError, source: CSV_SOURCE }));
     return;
   }
 
