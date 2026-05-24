@@ -30,6 +30,11 @@
     .branch { margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,.1); }
     .branch h3 { margin:0 0 8px; font-size:18px; }
     ul { margin:0; padding-left:18px; color:rgba(238,242,255,.82); }
+    .meta { color:rgba(238,242,255,.55); font-size:12px; margin-top:10px; }
+    .warehouse-list { display:grid; gap:8px; margin-top:8px; }
+    .warehouse-row { display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); }
+    .warehouse-row strong { font-weight:800; }
+    .warehouse-row span { color:rgba(238,242,255,.78); }
     .error { margin-top:12px; padding:12px 14px; border-radius:14px; background:rgba(248,113,113,.12); color:#fecaca; border:1px solid rgba(248,113,113,.22); }
     .pager { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0 14px; }
     .pager button { min-width:44px; padding:10px 12px; }
@@ -45,6 +50,7 @@
       <h1>เช็คสต็อกสินค้า</h1>
       <p class="sub">ทดสอบค้นหา SKU เต็ม, SKU บางส่วน หรือชื่อสินค้า</p>
       <div id="source-badge" class="status" style="margin-top:14px;">แหล่งข้อมูล: %%INITIAL_SOURCE_LABEL%%</div>
+      <div id="updated-badge" class="meta">Update: %%INITIAL_UPDATED_AT%%</div>
     </section>
 
     <div class="grid">
@@ -89,6 +95,7 @@
     const initialResult = %%INITIAL_RESULT%%;
     const initialError = "%%INITIAL_ERROR%%";
     const initialSource = "%%INITIAL_SOURCE%%";
+    const initialUpdatedAt = "%%INITIAL_UPDATED_AT%%";
     const form = document.getElementById('search-form');
     const queryInput = document.getElementById('query');
     const skuValue = document.getElementById('sku-value');
@@ -97,6 +104,7 @@
     const resultSlot = document.getElementById('result-slot');
     const errorSlot = document.getElementById('error-slot');
     const sourceBadge = document.getElementById('source-badge');
+    const updatedBadge = document.getElementById('updated-badge');
     let currentQuery = queryInput.value || '';
     let currentPage = 1;
 
@@ -106,6 +114,10 @@
     function setSourceBadge(source) {
       const label = String(source || '').toLowerCase() === 'github' ? 'GitHub' : 'Local';
       sourceBadge.textContent = `แหล่งข้อมูล: ${label}`;
+    }
+
+    function setUpdatedBadge(value) {
+      updatedBadge.textContent = `Update: ${value || '-'}`;
     }
 
     function escapeHtml(value) {
@@ -156,8 +168,31 @@
       return `<div class="pager">${buttons.join('')}</div>`;
     }
 
+    function renderWarehouseList(items) {
+      const rows = (items || []).flatMap((branch) => {
+        const warehouses = Array.isArray(branch.warehouses) ? branch.warehouses : [];
+        if (warehouses.length) {
+          return warehouses.map((warehouse) => `
+            <div class="warehouse-row">
+              <strong>${escapeHtml(branch.branch || '-')} · ${escapeHtml(warehouse.warehouse || '-')}</strong>
+              <span>${Number(warehouse.stock || 0)} ตัว</span>
+            </div>
+          `);
+        }
+        return `
+          <div class="warehouse-row">
+            <strong>${escapeHtml(branch.branch || '-')} · ${escapeHtml(branch.warehouse || '-')}</strong>
+            <span>${Number(branch.stock || 0)} ตัว</span>
+          </div>
+        `;
+      });
+
+      return rows.join('');
+    }
+
     function renderResult(data) {
       setSourceBadge(data.source || initialSource);
+      setUpdatedBadge(data.updated_at ? new Date(data.updated_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : initialUpdatedAt);
       if (data.matches && data.matches.length > 1) {
         const total = Number(data.total_matches || data.matches.length);
         const shown = Number(data.shown_matches || data.matches.length);
@@ -177,10 +212,11 @@
               <div class="stat">
                 <div class="value">${escapeHtml(item.sku || '-')}</div>
                 <div class="label" style="margin-top:6px; text-transform:none; letter-spacing:0;">${escapeHtml(item.name || '-')}</div>
-                <div style="margin-top:8px; color:rgba(238,242,255,.8);">${escapeHtml((item.branches || []).map((b) => `${b.branch}: ${Number(b.stock || 0)}`).join(' | ') || 'ไม่มีสต็อก')}</div>
+                <div class="warehouse-list">${renderWarehouseList(item.branches || [])}</div>
               </div>
             `).join('')}
           </div>`;
+        resultSlot.insertAdjacentHTML('beforeend', renderPager(data));
         return;
       }
 
@@ -189,12 +225,10 @@
       availableStock.textContent = `${Number(data.available_stock || 0)} ตัว`;
       resultSlot.innerHTML = `
         <div class="status ok">พบสินค้า</div>
-        ${(data.branches || []).map((branch) => `
-          <div class="branch">
-            <h3>${escapeHtml(branch.branch || '-')}</h3>
-            <ul><li>${escapeHtml(branch.warehouse || '-')} : ${Number(branch.stock || 0)}</li></ul>
-          </div>
-        `).join('')}
+        <div class="warehouse-list">
+        ${renderWarehouseList(data.branches || [])}
+        </div>
+        ${(data.branches || []).length ? '' : '<div class="meta">ไม่มีรายละเอียดคลัง</div>'}
       `;
     }
 
@@ -239,6 +273,7 @@
     if (initialResult) renderResult(initialResult);
     else {
       setSourceBadge(initialSource);
+      setUpdatedBadge(initialUpdatedAt);
       renderEmpty('');
     }
   </script>

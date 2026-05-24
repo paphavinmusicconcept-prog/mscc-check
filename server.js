@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { URL } = require('url');
 
 function loadDotEnv(filePath) {
@@ -262,12 +263,14 @@ function search(query, catalog, page = 1) {
 
 function renderIndex({ sku = '', result = null, error = '', source = CSV_SOURCE }) {
   const sourceLabel = source === 'github' ? 'GitHub' : 'Local';
+  const updatedAt = cache.loadedAt ? new Date(cache.loadedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
   return INDEX_HTML
     .replaceAll('%%INITIAL_SKU%%', sku.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'))
     .replaceAll('%%INITIAL_RESULT%%', result ? JSON.stringify(result) : 'null')
     .replaceAll('%%INITIAL_ERROR%%', error.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'))
     .replaceAll('%%INITIAL_SOURCE%%', source)
-    .replaceAll('%%INITIAL_SOURCE_LABEL%%', sourceLabel);
+    .replaceAll('%%INITIAL_SOURCE_LABEL%%', sourceLabel)
+    .replaceAll('%%INITIAL_UPDATED_AT%%', updatedAt);
 }
 
 let cache = { fingerprint: '', loadedAt: 0, catalog: new Map(), inventory: [] };
@@ -337,7 +340,13 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: true, rows: state.inventory.length, skus: state.catalog.size, source: CSV_SOURCE }));
+    res.end(JSON.stringify({
+      ok: true,
+      rows: state.inventory.length,
+      skus: state.catalog.size,
+      source: CSV_SOURCE,
+      updated_at: cache.loadedAt ? new Date(cache.loadedAt).toISOString() : null,
+    }));
     return;
   }
 
@@ -352,7 +361,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ...result, source: CSV_SOURCE }));
+    res.end(JSON.stringify({
+      ...result,
+      source: CSV_SOURCE,
+      updated_at: cache.loadedAt ? new Date(cache.loadedAt).toISOString() : null,
+    }));
     return;
   }
 
