@@ -1,12 +1,14 @@
 # MSCC Check
 
-Stock checker MVP for LINE OA / LIFF.
+ระบบตรวจสอบสต็อกสำหรับ LINE OA / LIFF
 
-## Recommended setup
+## ภาพรวม
 
-Use a separate GitHub repo for the stock CSV only.
+โปรเจกต์นี้เป็นแอป local สำหรับค้นหาสต็อกสินค้า และอ่านข้อมูลจากไฟล์ CSV ทั้งในเครื่องและจาก GitHub raw URL
 
-Example:
+## โครงสร้างข้อมูล
+
+แนะนำให้แยก repository สำหรับไฟล์ CSV ออกต่างหาก เช่น
 
 ```text
 mscc-stock-data/
@@ -17,16 +19,16 @@ mscc-stock-data/
     stock_beh_werehouse.CSV
 ```
 
-Update flow:
+## การอัปเดตข้อมูล
 
-1. Open the CSV files in GitHub web.
-2. Edit or replace the CSV files directly in the browser.
-3. Commit the change.
-4. This app reads the raw CSV URLs and refreshes on the next cache cycle.
+1. เปิดไฟล์ CSV ใน GitHub web
+2. แก้ไขหรือแทนที่ไฟล์ CSV ตามต้องการ
+3. Commit การเปลี่ยนแปลง
+4. แอปนี้จะอ่าน raw CSV URL และอัปเดตตามรอบ cache ถัดไป
 
-## Environment
+## การตั้งค่า
 
-Create a local `.env` from `.env.example`, then set the real raw URL once the stock repo exists.
+สร้างไฟล์ `.env` จาก `.env.example` แล้วกำหนดค่าให้ตรงกับสภาพแวดล้อมจริง
 
 ```bash
 LIFF_ID=
@@ -37,17 +39,17 @@ CACHE_TTL_MS=60000
 
 ## LIFF
 
-Deploy this app to an HTTPS URL first, then create a LIFF app in the LINE Developers Console and set the deployed URL as the Endpoint URL.
+ให้นำแอปขึ้นใช้งานผ่าน HTTPS ก่อน แล้วสร้าง LIFF app ใน LINE Developers Console จากนั้นกำหนด Endpoint URL ให้ชี้มายังแอปที่ deploy แล้ว
 
-Open the app from LINE with:
+เปิดใช้งานผ่าน URL รูปแบบนี้
 
 ```text
 https://liff.line.me/{liffId}
 ```
 
-## Local fallback
+## ข้อมูลสำรองในเครื่อง
 
-If `CSV_SOURCE` is not set, the app still reads:
+หากไม่ได้กำหนด `CSV_SOURCE` แอปจะอ่านไฟล์ใน `data/` ตามรายการนี้
 
 ```text
 data/stock_mscc.CSV
@@ -56,7 +58,7 @@ data/stock_beh_hq.CSV
 data/stock_beh_werehouse.CSV
 ```
 
-## Run
+## วิธีรัน
 
 ```bash
 npm start
