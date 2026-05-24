@@ -206,8 +206,13 @@
 
     function stockLabel(branch) {
       const warehouse = String(branch.warehouse || '');
-      if (warehouse.includes('คลังฝาก') || branch.branch === '06') return 'คลังฝาก';
       if (branch.branch === '01') return 'WT';
+      if (branch.branch === '02') return 'ใบยืม';
+      if (branch.branch === '03') return 'รออะไหล่/เสีย';
+      if (branch.branch === '04') return 'ฝากขาย';
+      if (branch.branch === '05') return 'จอง';
+      if (branch.branch === '06') return 'คลังฝาก';
+      if (warehouse.includes('คลังฝาก') || branch.branch === '06') return 'คลังฝาก';
       return branch.branch || warehouse || '-';
     }
 
