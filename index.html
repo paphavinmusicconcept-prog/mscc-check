@@ -24,6 +24,8 @@
     .label { color:rgba(238,242,255,.62); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
     .value { margin-top:8px; font-size:18px; font-weight:700; line-height:1.4; }
     .value.large { font-size:28px; }
+    .sku-card { font-size:13px; font-weight:700; letter-spacing:.02em; color:rgba(238,242,255,.78); }
+    .name-card { font-size:22px; font-weight:900; line-height:1.2; color:var(--text); }
     .status { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; font-size:13px; font-weight:700; margin-bottom:12px; }
     .ok { background:rgba(52,211,153,.12); color:#34d399; }
     .empty { background:rgba(248,113,113,.12); color:#f87171; }
@@ -130,6 +132,8 @@
     }
 
     function renderEmpty(message) {
+      skuValue.className = 'value';
+      nameValue.className = 'value';
       skuValue.textContent = '-';
       nameValue.textContent = '-';
       availableStock.textContent = '-';
@@ -221,6 +225,9 @@
       }
 
       skuValue.textContent = data.sku || '-';
+      skuValue.className = 'value sku-card';
+      nameValue.className = 'value name-card';
+      skuValue.textContent = data.sku || '-';
       nameValue.textContent = data.name || '-';
       availableStock.textContent = `${Number(data.available_stock || 0)} ตัว`;
       resultSlot.innerHTML = `
@@ -276,6 +283,7 @@
       setUpdatedBadge(initialUpdatedAt);
       renderEmpty('');
     }
+
   </script>
 </body>
 </html>
