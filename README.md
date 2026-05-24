@@ -23,6 +23,8 @@ Update flow:
 
 ## Environment
 
+Create a local `.env` from `.env.example`, then set the real raw URL once the stock repo exists.
+
 ```bash
 CSV_SOURCE=github
 GITHUB_RAW_URL_WT=https://raw.githubusercontent.com/OWNER/mscc-stock-data/main/data/stock_wt.CSV

@@ -3,6 +3,26 @@ const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
 
+function loadDotEnv(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  const text = fs.readFileSync(filePath, 'utf8');
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const idx = trimmed.indexOf('=');
+    if (idx === -1) continue;
+    const key = trimmed.slice(0, idx).trim();
+    let value = trimmed.slice(idx + 1).trim();
+    if (!key) continue;
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+loadDotEnv(path.join(__dirname, '.env'));
+
 const PORT = Number(process.env.PORT || 3000);
 const DATA_FILE = path.join(__dirname, 'data', 'stock_wt.CSV');
 const PAGE_SIZE = Number(process.env.PAGE_SIZE || 20);

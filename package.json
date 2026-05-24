@@ -5,7 +5,6 @@
   "description": "Music Concept stock checker MVP",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "sync:drive": "node sync-drive.js"
+    "start": "node server.js"
   }
 }
