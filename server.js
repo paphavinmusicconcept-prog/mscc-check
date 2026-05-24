@@ -25,10 +25,24 @@ function loadDotEnv(filePath) {
 loadDotEnv(path.join(__dirname, '.env'));
 
 const PORT = Number(process.env.PORT || 3000);
-const DATA_FILE = path.join(__dirname, 'data', 'stock_wt.CSV');
+const DATA_DIR = path.join(__dirname, 'data');
+const DATA_FILES = (process.env.DATA_FILES || [
+  'stock_mscc.CSV',
+  'stock_mscc_werehouse.CSV',
+  'stock_beh_hq.CSV',
+  'stock_beh_werehouse.CSV',
+].join(','))
+  .split(',')
+  .map((file) => file.trim())
+  .filter(Boolean)
+  .map((file) => path.join(DATA_DIR, file));
 const PAGE_SIZE = Number(process.env.PAGE_SIZE || 20);
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
-const CSV_SOURCE = String(process.env.CSV_SOURCE || '').trim().toLowerCase() || (process.env.GITHUB_RAW_URL_WT || process.env.GITHUB_RAW_URL ? 'github' : 'local');
+const CSV_SOURCE = String(process.env.CSV_SOURCE || '').trim().toLowerCase() || (process.env.GITHUB_RAW_URLS || process.env.GITHUB_RAW_URL_WT || process.env.GITHUB_RAW_URL ? 'github' : 'local');
+const GITHUB_RAW_URLS = (process.env.GITHUB_RAW_URLS || '')
+  .split(',')
+  .map((url) => url.trim())
+  .filter(Boolean);
 const GITHUB_RAW_URL_WT = process.env.GITHUB_RAW_URL_WT || process.env.GITHUB_RAW_URL || '';
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 60_000);
 
@@ -113,24 +127,45 @@ const SECTION_META = {
   '06': { branch: '06', warehouse: 'คลังฝาก มิวสิกคอนเซพท์ - สนง.เพชรบุรี' },
 };
 
-function getSectionMeta(code, fallbackTitle = '') {
+function getBranchFromFile(filePath) {
+  const name = path.basename(filePath).toLowerCase();
+  if (name.includes('beh')) return 'BEH';
+  if (name.includes('mscc')) return 'MSCC';
+  return 'WT';
+}
+
+function getWarehouseKindFromFile(filePath) {
+  const name = path.basename(filePath).toLowerCase();
+  if (name.includes('hq')) return 'หน้าร้าน';
+  if (name.includes('werehouse') || name.includes('warehouse')) return 'คลัง';
+  return '';
+}
+
+function getSectionMeta(code, fallbackTitle = '', filePath = '') {
   const normalized = String(code || '').trim();
-  if (SECTION_META[normalized]) return SECTION_META[normalized];
+  const branch = getBranchFromFile(filePath);
+  const fileKind = getWarehouseKindFromFile(filePath);
+  if (normalized === '01' && fileKind) {
+    return { branch, warehouse: fileKind };
+  }
+  if (SECTION_META[normalized]) {
+    return { ...SECTION_META[normalized], branch: normalized === '01' ? branch : SECTION_META[normalized].branch };
+  }
   const title = String(fallbackTitle || '').trim();
   return {
-    branch: normalized || 'WT',
+    branch: normalized || branch,
     warehouse: title || 'Music Concept WT',
   };
 }
 
-function loadInventoryFromText(text) {
+function loadInventoryFromText(text, filePath = '') {
   const rows = parseCsv(text);
   const items = [];
-  let currentSection = getSectionMeta('WT', 'Music Concept WT');
+  let currentSection = getSectionMeta('01', 'Music Concept WT', filePath);
 
   for (const row of rows) {
     if (row.length === 3 && /^[0-9]{2}$/.test(String(row[1] || '').trim())) {
-      currentSection = getSectionMeta(row[1], row[2]);
+      currentSection = getSectionMeta(row[1], row[2], filePath);
       continue;
     }
 
@@ -142,6 +177,7 @@ function loadInventoryFromText(text) {
       name: String(row[4] || '').trim(),
       branch: currentSection.branch,
       warehouse: currentSection.warehouse,
+      source_file: path.basename(filePath),
       stock: toNumber(row[10]),
     });
   }
@@ -304,27 +340,27 @@ async function refreshIfNeeded() {
   let inventory = [];
 
   if (CSV_SOURCE === 'github') {
-    const text = await fetchRemoteText(GITHUB_RAW_URL_WT);
-    fingerprint = `remote:${crypto.createHash('sha1').update(text).digest('hex')}`;
+    const urls = GITHUB_RAW_URLS.length ? GITHUB_RAW_URLS : [GITHUB_RAW_URL_WT].filter(Boolean);
+    const files = await Promise.all(urls.map(async (url) => ({ url, text: await fetchRemoteText(url) })));
+    fingerprint = `remote:${crypto.createHash('sha1').update(files.map(({ url, text }) => `${url}:${text}`).join('\n')).digest('hex')}`;
     if (fingerprint === cache.fingerprint) {
       cache.loadedAt = now;
       return cache;
     }
-    inventory = loadInventoryFromText(text);
+    inventory = files.flatMap(({ url, text }) => loadInventoryFromText(text, url));
   } else {
-    const stat = fs.existsSync(DATA_FILE) ? fs.statSync(DATA_FILE) : null;
-    const mtimeMs = stat ? stat.mtimeMs : 0;
-    fingerprint = `local:${mtimeMs}`;
+    const fileStats = DATA_FILES
+      .filter((filePath) => fs.existsSync(filePath))
+      .map((filePath) => ({ filePath, stat: fs.statSync(filePath) }));
+    fingerprint = `local:${fileStats.map(({ filePath, stat }) => `${path.basename(filePath)}:${stat.mtimeMs}:${stat.size}`).join('|')}`;
     if (fingerprint === cache.fingerprint) {
       cache.loadedAt = now;
       return cache;
     }
-    if (!stat) {
-      inventory = [];
-    } else {
-      const text = fs.readFileSync(DATA_FILE, 'latin1');
-      inventory = loadInventoryFromText(text);
-    }
+    inventory = fileStats.flatMap(({ filePath }) => {
+      const text = fs.readFileSync(filePath, 'latin1');
+      return loadInventoryFromText(text, filePath);
+    });
   }
 
   cache = {

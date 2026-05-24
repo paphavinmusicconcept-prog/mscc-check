@@ -206,7 +206,9 @@
 
     function stockLabel(branch) {
       const warehouse = String(branch.warehouse || '');
-      if (branch.branch === '01') return 'WT';
+      if (branch.branch === 'MSCC') return warehouse || 'MSCC';
+      if (branch.branch === 'BEH') return warehouse || 'BEH';
+      if (branch.branch === '01') return 'หน้าร้าน';
       if (branch.branch === '02') return 'ใบยืม';
       if (branch.branch === '03') return 'รออะไหล่/เสีย';
       if (branch.branch === '04') return 'ฝากขาย';
