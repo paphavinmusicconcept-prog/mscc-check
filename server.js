@@ -104,23 +104,44 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function loadInventory() {
-  return [];
+const SECTION_META = {
+  '01': { branch: '01', warehouse: 'คลังมิวสิกคอนเซพท์' },
+  '02': { branch: '02', warehouse: 'ใบยืมมิวสิกคอนเซพท์' },
+  '03': { branch: '03', warehouse: 'สินค้ารออะไหล่, เสีย - มิวสิกคอนเซพท์' },
+  '04': { branch: '04', warehouse: 'สินค้าฝากขาย' },
+  '05': { branch: '05', warehouse: 'จองสินค้า, มัดจำสินค้า' },
+  '06': { branch: '06', warehouse: 'คลังฝาก มิวสิกคอนเซพท์ - สนง.เพชรบุรี' },
+};
+
+function getSectionMeta(code, fallbackTitle = '') {
+  const normalized = String(code || '').trim();
+  if (SECTION_META[normalized]) return SECTION_META[normalized];
+  const title = String(fallbackTitle || '').trim();
+  return {
+    branch: normalized || 'WT',
+    warehouse: title || 'Music Concept WT',
+  };
 }
 
 function loadInventoryFromText(text) {
   const rows = parseCsv(text);
   const items = [];
+  let currentSection = getSectionMeta('WT', 'Music Concept WT');
 
   for (const row of rows) {
+    if (row.length === 3 && /^[0-9]{2}$/.test(String(row[1] || '').trim())) {
+      currentSection = getSectionMeta(row[1], row[2]);
+      continue;
+    }
+
     const sku = normalizeSku(row[3]);
     if (!/^[A-Z0-9][A-Z0-9\-_.]{2,}$/.test(sku)) continue;
 
     items.push({
       sku,
       name: String(row[4] || '').trim(),
-      branch: 'WT',
-      warehouse: 'Music Concept WT',
+      branch: currentSection.branch,
+      warehouse: currentSection.warehouse,
       stock: toNumber(row[10]),
     });
   }
