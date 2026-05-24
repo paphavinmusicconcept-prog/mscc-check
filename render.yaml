@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: mscc-check
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CSV_SOURCE
+        value: github
+      - key: CACHE_TTL_MS
+        value: "60000"
+      - key: PAGE_SIZE
+        value: "20"
+      - key: GITHUB_RAW_URLS
+        value: https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc_werehouse.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_hq.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_werehouse.CSV
+      - key: LIFF_ID
+        sync: false

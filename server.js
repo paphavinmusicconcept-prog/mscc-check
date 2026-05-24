@@ -343,13 +343,15 @@ function search(query, catalog, page = 1) {
 function renderIndex({ sku = '', result = null, error = '', source = CSV_SOURCE }) {
   const sourceLabel = source === 'github' ? 'GitHub' : 'Local';
   const updatedAt = cache.loadedAt ? new Date(cache.loadedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
+  const liffId = String(process.env.LIFF_ID || '').trim();
   return INDEX_HTML
     .replaceAll('%%INITIAL_SKU%%', sku.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'))
     .replaceAll('%%INITIAL_RESULT%%', result ? JSON.stringify(result) : 'null')
     .replaceAll('%%INITIAL_ERROR%%', error.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'))
     .replaceAll('%%INITIAL_SOURCE%%', source)
     .replaceAll('%%INITIAL_SOURCE_LABEL%%', sourceLabel)
-    .replaceAll('%%INITIAL_UPDATED_AT%%', updatedAt);
+    .replaceAll('%%INITIAL_UPDATED_AT%%', updatedAt)
+    .replaceAll('%%LIFF_ID%%', liffId.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'));
 }
 
 let cache = { fingerprint: '', loadedAt: 0, catalog: new Map(), inventory: [] };

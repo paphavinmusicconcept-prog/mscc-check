@@ -29,9 +29,20 @@ Update flow:
 Create a local `.env` from `.env.example`, then set the real raw URL once the stock repo exists.
 
 ```bash
+LIFF_ID=
 CSV_SOURCE=github
 GITHUB_RAW_URLS=https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc_werehouse.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_hq.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_werehouse.CSV
 CACHE_TTL_MS=60000
+```
+
+## LIFF
+
+Deploy this app to an HTTPS URL first, then create a LIFF app in the LINE Developers Console and set the deployed URL as the Endpoint URL.
+
+Open the app from LINE with:
+
+```text
+https://liff.line.me/{liffId}
 ```
 
 ## Local fallback
