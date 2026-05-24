@@ -1,0 +1,11 @@
+{
+  "name": "mscc-check",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Music Concept stock checker MVP",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "sync:drive": "node sync-drive.js"
+  }
+}

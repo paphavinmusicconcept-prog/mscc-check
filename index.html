@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MSCC Check</title>
+  <style>
+    :root { --bg:#0b1020; --panel:rgba(16,23,42,.86); --text:#eef2ff; --muted:#a5b4fc; --accent:#7dd3fc; --line:rgba(255,255,255,.12); }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--text); background:radial-gradient(circle at top left, rgba(125,211,252,.18), transparent 25%), linear-gradient(180deg,#090d1a, #0b1020); }
+    .wrap { width:min(960px, calc(100% - 32px)); margin:0 auto; padding:24px 0 40px; }
+    .hero, .card { border:1px solid var(--line); border-radius:20px; background:var(--panel); box-shadow:0 24px 80px rgba(0,0,0,.3); }
+    .hero { padding:24px; }
+    h1 { margin:0 0 8px; font-size:clamp(28px, 5vw, 48px); }
+    .sub { margin:0; color:rgba(238,242,255,.72); line-height:1.6; }
+    .grid { display:grid; grid-template-columns:1.1fr .9fr; gap:16px; margin-top:16px; }
+    .inner { padding:18px; }
+    .search { display:flex; gap:10px; flex-wrap:wrap; }
+    input { flex:1 1 280px; min-width:0; padding:14px 16px; border:1px solid rgba(255,255,255,.16); border-radius:14px; background:rgba(255,255,255,.06); color:var(--text); font-size:16px; }
+    button, .link { border:0; border-radius:14px; padding:14px 16px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+    .primary { background:linear-gradient(135deg, var(--accent), #c4b5fd); color:#08111f; }
+    .secondary { background:rgba(255,255,255,.08); color:var(--text); border:1px solid rgba(255,255,255,.14); }
+    .stat { padding:16px; border-radius:16px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); margin-bottom:12px; }
+    .label { color:rgba(238,242,255,.62); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
+    .value { margin-top:8px; font-size:18px; font-weight:700; line-height:1.4; }
+    .value.large { font-size:28px; }
+    .status { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; font-size:13px; font-weight:700; margin-bottom:12px; }
+    .ok { background:rgba(52,211,153,.12); color:#34d399; }
+    .empty { background:rgba(248,113,113,.12); color:#f87171; }
+    .branch { margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,.1); }
+    .branch h3 { margin:0 0 8px; font-size:18px; }
+    ul { margin:0; padding-left:18px; color:rgba(238,242,255,.82); }
+    .error { margin-top:12px; padding:12px 14px; border-radius:14px; background:rgba(248,113,113,.12); color:#fecaca; border:1px solid rgba(248,113,113,.22); }
+    .pager { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0 14px; }
+    .pager button { min-width:44px; padding:10px 12px; }
+    .pager .active { background: linear-gradient(135deg, var(--accent), #c4b5fd); color:#08111f; }
+    .pager .ghost { background:rgba(255,255,255,.06); color:var(--text); border:1px solid rgba(255,255,255,.14); }
+    @media (max-width:840px) { .grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div style="color:var(--accent); font-size:12px; letter-spacing:.08em; text-transform:uppercase;">MSCC Check</div>
+      <h1>เช็คสต็อกสินค้า</h1>
+      <p class="sub">ทดสอบค้นหา SKU เต็ม, SKU บางส่วน หรือชื่อสินค้า</p>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <div class="inner">
+          <form class="search" id="search-form">
+            <input id="query" name="query" placeholder="พิมพ์ SKU เช่น F011-4980-" value="%%INITIAL_SKU%%" autocomplete="off" spellcheck="false" />
+            <button class="primary" type="submit">ค้นหา</button>
+            <a class="link secondary" href="/">ล้าง</a>
+          </form>
+          <div id="error-slot"></div>
+        </div>
+      </section>
+
+      <aside class="card">
+        <div class="inner">
+          <div class="stat">
+            <div class="label">Available Stock</div>
+            <div class="value large" id="available-stock">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">SKU</div>
+            <div class="value" id="sku-value">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">ชื่อสินค้า</div>
+            <div class="value" id="name-value">-</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="card" style="margin-top:16px;">
+      <div class="inner">
+        <div class="label">รายละเอียดคลัง</div>
+        <div id="result-slot" style="margin-top:10px;"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const initialResult = %%INITIAL_RESULT%%;
+    const initialError = "%%INITIAL_ERROR%%";
+    const form = document.getElementById('search-form');
+    const queryInput = document.getElementById('query');
+    const skuValue = document.getElementById('sku-value');
+    const nameValue = document.getElementById('name-value');
+    const availableStock = document.getElementById('available-stock');
+    const resultSlot = document.getElementById('result-slot');
+    const errorSlot = document.getElementById('error-slot');
+    let currentQuery = queryInput.value || '';
+    let currentPage = 1;
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderEmpty(message) {
+      skuValue.textContent = '-';
+      nameValue.textContent = '-';
+      availableStock.textContent = '-';
+      resultSlot.innerHTML = '<div class="status empty">ยังไม่มีผลลัพธ์</div>';
+      errorSlot.innerHTML = message ? `<div class="error">${escapeHtml(message)}</div>` : '';
+    }
+
+    function renderPager(data) {
+      const totalPages = Number(data.total_pages || 1);
+      const page = Number(data.page || 1);
+      if (totalPages <= 1) return '';
+
+      const buttons = [];
+      const prevDisabled = page <= 1 ? 'disabled' : '';
+      const nextDisabled = page >= totalPages ? 'disabled' : '';
+
+      buttons.push(`<button class="ghost" type="button" data-page="${page - 1}" ${prevDisabled}>ก่อนหน้า</button>`);
+
+      const start = Math.max(1, page - 2);
+      const end = Math.min(totalPages, page + 2);
+      if (start > 1) {
+        buttons.push(`<button class="ghost" type="button" data-page="1">1</button>`);
+        if (start > 2) buttons.push(`<span style="opacity:.7;">...</span>`);
+      }
+
+      for (let p = start; p <= end; p += 1) {
+        buttons.push(`<button type="button" data-page="${p}" class="${p === page ? 'active' : 'ghost'}">${p}</button>`);
+      }
+
+      if (end < totalPages) {
+        if (end < totalPages - 1) buttons.push(`<span style="opacity:.7;">...</span>`);
+        buttons.push(`<button class="ghost" type="button" data-page="${totalPages}">${totalPages}</button>`);
+      }
+
+      buttons.push(`<button class="ghost" type="button" data-page="${page + 1}" ${nextDisabled}>ถัดไป</button>`);
+      return `<div class="pager">${buttons.join('')}</div>`;
+    }
+
+    function renderResult(data) {
+      if (data.matches && data.matches.length > 1) {
+        const total = Number(data.total_matches || data.matches.length);
+        const shown = Number(data.shown_matches || data.matches.length);
+        const page = Number(data.page || 1);
+        const totalPages = Number(data.total_pages || 1);
+        skuValue.textContent = data.query || '-';
+        nameValue.textContent = `${total} รายการ`;
+        availableStock.textContent = `${total} รายการ`;
+        resultSlot.innerHTML = `
+          <div class="status ok">พบหลายสินค้า</div>
+          <div class="label" style="margin-bottom:10px; text-transform:none; letter-spacing:0;">
+            แสดงหน้า ${page} จากทั้งหมด ${totalPages} หน้า, ${shown} จากทั้งหมด ${total} รายการ
+          </div>
+          ${renderPager(data)}
+          <div style="display:grid; gap:10px;">
+            ${data.matches.map((item) => `
+              <div class="stat">
+                <div class="value">${escapeHtml(item.sku || '-')}</div>
+                <div class="label" style="margin-top:6px; text-transform:none; letter-spacing:0;">${escapeHtml(item.name || '-')}</div>
+                <div style="margin-top:8px; color:rgba(238,242,255,.8);">${escapeHtml((item.branches || []).map((b) => `${b.branch}: ${Number(b.stock || 0)}`).join(' | ') || 'ไม่มีสต็อก')}</div>
+              </div>
+            `).join('')}
+          </div>`;
+        return;
+      }
+
+      skuValue.textContent = data.sku || '-';
+      nameValue.textContent = data.name || '-';
+      availableStock.textContent = `${Number(data.available_stock || 0)} ตัว`;
+      resultSlot.innerHTML = `
+        <div class="status ok">พบสินค้า</div>
+        ${(data.branches || []).map((branch) => `
+          <div class="branch">
+            <h3>${escapeHtml(branch.branch || '-')}</h3>
+            <ul><li>${escapeHtml(branch.warehouse || '-')} : ${Number(branch.stock || 0)}</li></ul>
+          </div>
+        `).join('')}
+      `;
+    }
+
+    async function runSearch(query, page = 1) {
+      const value = String(query || '').trim();
+      if (!value) {
+        renderEmpty('กรุณาพิมพ์ SKU หรือชื่อสินค้าก่อน');
+        return;
+      }
+
+      errorSlot.innerHTML = '';
+      resultSlot.innerHTML = '<div class="status">กำลังค้นหา...</div>';
+
+      const response = await fetch(`/search?sku=${encodeURIComponent(value)}&page=${encodeURIComponent(page)}`);
+      const payload = await response.json();
+      if (!response.ok) {
+        renderEmpty(payload.message || 'ไม่พบสินค้า');
+        return;
+      }
+
+      currentQuery = value;
+      currentPage = Number(payload.page || 1);
+      renderResult(payload);
+      history.replaceState({}, '', `/?sku=${encodeURIComponent(value)}&page=${currentPage}`);
+    }
+
+    resultSlot.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-page]');
+      if (!button) return;
+      const nextPage = Number(button.dataset.page || 1);
+      if (!Number.isFinite(nextPage) || nextPage < 1) return;
+      runSearch(currentQuery, nextPage).catch((error) => renderEmpty(error.message || 'เกิดข้อผิดพลาด'));
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      currentPage = 1;
+      runSearch(queryInput.value, 1).catch((error) => renderEmpty(error.message || 'เกิดข้อผิดพลาด'));
+    });
+
+    if (initialError) errorSlot.innerHTML = `<div class="error">${escapeHtml(initialError)}</div>`;
+    if (initialResult) renderResult(initialResult);
+    else renderEmpty('');
+  </script>
+</body>
+</html>
