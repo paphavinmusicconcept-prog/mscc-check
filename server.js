@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { TextDecoder } = require('util');
 const { URL } = require('url');
 
 function loadDotEnv(filePath) {
@@ -45,6 +46,7 @@ const GITHUB_RAW_URLS = (process.env.GITHUB_RAW_URLS || '')
   .filter(Boolean);
 const GITHUB_RAW_URL_WT = process.env.GITHUB_RAW_URL_WT || process.env.GITHUB_RAW_URL || '';
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 60_000);
+const CSV_DECODER = new TextDecoder('windows-874');
 
 function parseCsv(text) {
   const rows = [];
@@ -127,6 +129,17 @@ const SECTION_META = {
   '06': { branch: '06', warehouse: 'คลังฝาก มิวสิกคอนเซพท์ - สนง.เพชรบุรี' },
 };
 
+const DISPLAY_WAREHOUSES = new Map([
+  ['stock_beh_hq.csv|01|คลังเบ๊', 'คลังเบ๊'],
+  ['stock_mscc.csv|01|คลังมิวสิกคอนเซพท์', 'คลังมิวสิกคอนเซพท์'],
+  ['stock_mscc_werehouse.csv|04|คลังสำนักงานเพชรบุรีตัดใหม่', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
+  ['stock_beh_werehouse.csv|04|คลังสำนักงานเพชรบุรีตัดใหม่', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
+  ['stock_mscc.csv|06|คลังฝาก มิวสิกคอนเซพท์ - สนง.เพชรบุรี', 'คลังฝาก MSCC'],
+  ['stock_mscc_werehouse.csv|07|เบ๊จองสินค้า-เพชรบุรีฯ', 'เบ๊จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_werehouse.csv|07|เบ๊จอง สินค้าคลังเพชรบุรีฯ', 'เบ๊จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_werehouse.csv|08|มิวสิกจอง สินค้าคลังเพชรบุรีฯ', 'Mscc จอง คลังเพชรบุรีฯ'],
+]);
+
 function getBranchFromFile(filePath) {
   const name = path.basename(filePath).toLowerCase();
   if (name.includes('beh')) return 'BEH';
@@ -145,16 +158,17 @@ function getSectionMeta(code, fallbackTitle = '', filePath = '') {
   const normalized = String(code || '').trim();
   const branch = getBranchFromFile(filePath);
   const fileKind = getWarehouseKindFromFile(filePath);
-  if (normalized === '01' && fileKind) {
-    return { branch, warehouse: fileKind };
-  }
+  const title = String(fallbackTitle || '').trim().replace(/\s+/g, ' ');
+  const displayKey = `${path.basename(filePath).toLowerCase()}|${normalized}|${title}`;
+  const displayLabel = DISPLAY_WAREHOUSES.get(displayKey) || '';
+  if (normalized === '01' && fileKind) return { branch, warehouse: title || fileKind, displayLabel };
   if (SECTION_META[normalized]) {
-    return { ...SECTION_META[normalized], branch: normalized === '01' ? branch : SECTION_META[normalized].branch };
+    return { ...SECTION_META[normalized], branch: normalized === '01' ? branch : SECTION_META[normalized].branch, warehouse: title || SECTION_META[normalized].warehouse, displayLabel };
   }
-  const title = String(fallbackTitle || '').trim();
   return {
     branch: normalized || branch,
     warehouse: title || 'Music Concept WT',
+    displayLabel,
   };
 }
 
@@ -172,11 +186,16 @@ function loadInventoryFromText(text, filePath = '') {
     const sku = normalizeSku(row[3]);
     if (!/^[A-Z0-9][A-Z0-9\-_.]{2,}$/.test(sku)) continue;
 
+    const displayKey = `${path.basename(filePath).toLowerCase()}|${currentSection.branch}|${currentSection.warehouse}`;
+    const displayLabel = currentSection.displayLabel || DISPLAY_WAREHOUSES.get(displayKey) || '';
+    if (!displayLabel) continue;
+
     items.push({
       sku,
       name: String(row[4] || '').trim(),
       branch: currentSection.branch,
       warehouse: currentSection.warehouse,
+      label: displayLabel,
       source_file: path.basename(filePath),
       stock: toNumber(row[10]),
     });
@@ -186,14 +205,15 @@ function loadInventoryFromText(text, filePath = '') {
 }
 
 async function fetchRemoteText(url) {
-  if (!url) throw new Error('Missing GITHUB_RAW_URL_WT or GITHUB_RAW_URL');
+  if (!url) throw new Error('Missing GITHUB_RAW_URLS, GITHUB_RAW_URL_WT, or GITHUB_RAW_URL');
   const response = await fetch(url, {
     headers: {
       'Cache-Control': 'no-cache',
       'Pragma': 'no-cache',
     },
   });
-  const text = await response.text();
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const text = CSV_DECODER.decode(buffer);
   if (!response.ok) {
     throw new Error(`Failed to fetch remote CSV: ${response.status} ${text.slice(0, 200)}`);
   }
@@ -213,6 +233,7 @@ function buildCatalog(items) {
     product.entries.push({
       branch: item.branch,
       warehouse: item.warehouse,
+      label: item.label,
       stock: item.stock,
     });
   }
@@ -229,6 +250,7 @@ function summarize(product) {
     branches.push({
       branch: entry.branch,
       warehouse: entry.warehouse,
+      label: entry.label,
       stock: entry.stock,
     });
   }
@@ -358,7 +380,7 @@ async function refreshIfNeeded() {
       return cache;
     }
     inventory = fileStats.flatMap(({ filePath }) => {
-      const text = fs.readFileSync(filePath, 'latin1');
+      const text = CSV_DECODER.decode(fs.readFileSync(filePath));
       return loadInventoryFromText(text, filePath);
     });
   }
