@@ -17,14 +17,41 @@ mscc-stock-data/
     stock_mscc_werehouse.CSV
     stock_beh_hq.CSV
     stock_beh_werehouse.CSV
+    stock_wt.CSV
 ```
 
 ## การอัปเดตข้อมูล
 
-1. เปิดไฟล์ CSV ใน GitHub web
-2. แก้ไขหรือแทนที่ไฟล์ CSV ตามต้องการ
-3. Commit การเปลี่ยนแปลง
-4. แอปนี้จะอ่าน raw CSV URL ใหม่ทุกครั้งที่มีคำขอ เพื่อให้ข้อมูลล่าสุดแสดงทันทีหลังอัปเดต
+มี 2 วิธี
+
+1. เปิดไฟล์ CSV ใน GitHub web แล้วแก้ไขหรือแทนที่ไฟล์ตามต้องการ
+2. เปิดหน้า `/admin` ของแอป แล้วอัปโหลด CSV ผ่านเว็บ
+
+หลัง commit แล้ว แอปนี้จะอ่าน raw CSV URL ใหม่เพื่อให้ข้อมูลล่าสุดแสดงหลังอัปเดต
+
+## หน้าอัปโหลด CSV
+
+เปิดใช้งานหน้า `/admin` ด้วย environment variables เหล่านี้
+
+```bash
+ADMIN_ID=mscc-acc
+ADMIN_PASSWORD=
+GITHUB_TOKEN=
+DATA_REPO=paphavinmusicconcept-prog/mscc-stock-data
+DATA_BRANCH=main
+```
+
+ให้ตั้ง `ADMIN_PASSWORD` เป็นรหัสผ่านจริงในระบบ deploy เช่น Render Environment และตั้ง `GITHUB_TOKEN` เป็น GitHub fine-grained personal access token ที่มีสิทธิ์ Contents: Read and write เฉพาะ repo `mscc-stock-data`
+
+ไฟล์ที่หน้า `/admin` อัปเดตได้คือ
+
+```text
+stock_mscc.CSV
+stock_mscc_werehouse.CSV
+stock_beh_hq.CSV
+stock_beh_werehouse.CSV
+stock_wt.CSV
+```
 
 ## การตั้งค่า
 
@@ -34,6 +61,9 @@ mscc-stock-data/
 LIFF_ID=
 CSV_SOURCE=github
 GITHUB_RAW_URLS=https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc_werehouse.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_hq.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_werehouse.CSV
+ADMIN_ID=mscc-acc
+ADMIN_PASSWORD=
+GITHUB_TOKEN=
 ```
 
 ## LIFF
