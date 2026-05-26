@@ -16,9 +16,7 @@ function loadDotEnv(filePath) {
     const key = trimmed.slice(0, idx).trim();
     let value = trimmed.slice(idx + 1).trim();
     if (!key) continue;
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
     if (process.env[key] === undefined) process.env[key] = value;
   }
 }
@@ -40,10 +38,7 @@ const DATA_FILES = (process.env.DATA_FILES || [
 const PAGE_SIZE = Number(process.env.PAGE_SIZE || 20);
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 const CSV_SOURCE = String(process.env.CSV_SOURCE || '').trim().toLowerCase() || (process.env.GITHUB_RAW_URLS || process.env.GITHUB_RAW_URL_WT || process.env.GITHUB_RAW_URL ? 'github' : 'local');
-const GITHUB_RAW_URLS = (process.env.GITHUB_RAW_URLS || '')
-  .split(',')
-  .map((url) => url.trim())
-  .filter(Boolean);
+const GITHUB_RAW_URLS = (process.env.GITHUB_RAW_URLS || '').split(',').map((url) => url.trim()).filter(Boolean);
 const GITHUB_RAW_URL_WT = process.env.GITHUB_RAW_URL_WT || process.env.GITHUB_RAW_URL || '';
 const CSV_DECODER = new TextDecoder('windows-874');
 const ADMIN_ID = String(process.env.ADMIN_ID || 'mscc-acc');
@@ -52,12 +47,12 @@ const GITHUB_TOKEN = String(process.env.GITHUB_TOKEN || '');
 const DATA_REPO = String(process.env.DATA_REPO || 'paphavinmusicconcept-prog/mscc-stock-data');
 const DATA_BRANCH = String(process.env.DATA_BRANCH || 'main');
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES || 15 * 1024 * 1024);
+const STOCK_METADATA_PATH = 'data/stock-upload-meta.json';
 const ALLOWED_STOCK_FILES = [
   'stock_mscc.CSV',
   'stock_mscc_werehouse.CSV',
   'stock_beh_hq.CSV',
   'stock_beh_werehouse.CSV',
-  'stock_wt.CSV',
 ];
 
 function parseCsv(text) {
@@ -66,17 +61,15 @@ function parseCsv(text) {
   let row = [];
   let inQuotes = false;
   const normalized = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
   for (let i = 0; i < normalized.length; i += 1) {
     const char = normalized[i];
     const next = normalized[i + 1];
-
     if (inQuotes) {
       if (char === '"') {
         if (next === '"') {
           field += '"';
           i += 1;
-        } else if (next === ',' || next === '\n' || next === '\r' || next === undefined) {
+        } else if (next === ',' || next === '\n' || next === undefined) {
           inQuotes = false;
         } else {
           field += '"';
@@ -86,22 +79,16 @@ function parseCsv(text) {
       }
       continue;
     }
-
     if (char === '"') {
-      if (field === '') {
-        inQuotes = true;
-      } else {
-        field += '"';
-      }
+      if (!field) inQuotes = true;
+      else field += '"';
       continue;
     }
-
     if (char === ',') {
       row.push(field);
       field = '';
       continue;
     }
-
     if (char === '\n') {
       row.push(field);
       rows.push(row);
@@ -109,15 +96,12 @@ function parseCsv(text) {
       field = '';
       continue;
     }
-
     field += char;
   }
-
   if (field.length || row.length) {
     row.push(field);
     rows.push(row);
   }
-
   return rows;
 }
 
@@ -183,34 +167,24 @@ function getSectionMeta(code, fallbackTitle = '', filePath = '') {
   const displayKey = `${path.basename(filePath).toLowerCase()}|${normalized}|${title}`;
   const displayLabel = DISPLAY_WAREHOUSES.get(displayKey) || '';
   if (normalized === '01' && fileKind) return { branch, warehouse: title || fileKind, displayLabel };
-  if (SECTION_META[normalized]) {
-    return { ...SECTION_META[normalized], branch: normalized === '01' ? branch : SECTION_META[normalized].branch, warehouse: title || SECTION_META[normalized].warehouse, displayLabel };
-  }
-  return {
-    branch: normalized || branch,
-    warehouse: title || 'Music Concept WT',
-    displayLabel,
-  };
+  if (SECTION_META[normalized]) return { ...SECTION_META[normalized], branch: normalized === '01' ? branch : SECTION_META[normalized].branch, warehouse: title || SECTION_META[normalized].warehouse, displayLabel };
+  return { branch: normalized || branch, warehouse: title || 'Music Concept WT', displayLabel };
 }
 
 function loadInventoryFromText(text, filePath = '') {
   const rows = parseCsv(text);
   const items = [];
   let currentSection = getSectionMeta('01', 'Music Concept WT', filePath);
-
   for (const row of rows) {
     if (row.length === 3 && /^[0-9]{2}$/.test(String(row[1] || '').trim())) {
       currentSection = getSectionMeta(row[1], row[2], filePath);
       continue;
     }
-
     const sku = normalizeSku(row[3]);
     if (!/^[A-Z0-9][A-Z0-9\-_.]{2,}$/.test(sku)) continue;
-
     const displayKey = `${path.basename(filePath).toLowerCase()}|${currentSection.branch}|${currentSection.warehouse}`;
     const displayLabel = currentSection.displayLabel || DISPLAY_WAREHOUSES.get(displayKey) || '';
     if (!displayLabel) continue;
-
     items.push({
       sku,
       name: String(row[4] || '').trim(),
@@ -221,7 +195,6 @@ function loadInventoryFromText(text, filePath = '') {
       stock: toNumber(row[10]),
     });
   }
-
   return items;
 }
 
@@ -229,143 +202,71 @@ async function fetchRemoteText(url) {
   if (!url) throw new Error('Missing GITHUB_RAW_URLS, GITHUB_RAW_URL_WT, or GITHUB_RAW_URL');
   const parsed = new URL(url);
   parsed.searchParams.set('_', String(Date.now()));
-  const response = await fetch(parsed.toString(), {
-    headers: {
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
-    },
-  });
+  const response = await fetch(parsed.toString(), { headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } });
   const buffer = Buffer.from(await response.arrayBuffer());
   const text = CSV_DECODER.decode(buffer);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch remote CSV: ${response.status} ${text.slice(0, 200)}`);
-  }
+  if (!response.ok) throw new Error(`Failed to fetch remote CSV: ${response.status} ${text.slice(0, 200)}`);
   return text;
+}
+
+async function fetchStockMetadata() {
+  if (CSV_SOURCE !== 'github') return null;
+  const parsed = new URL(`https://raw.githubusercontent.com/${DATA_REPO}/${DATA_BRANCH}/${STOCK_METADATA_PATH}`);
+  parsed.searchParams.set('_', String(Date.now()));
+  const response = await fetch(parsed.toString(), { headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } });
+  if (response.status === 404) return null;
+  const text = await response.text();
+  if (!response.ok) throw new Error(`Failed to fetch stock metadata: ${response.status} ${text.slice(0, 200)}`);
+  return JSON.parse(text);
 }
 
 function buildCatalog(items) {
   const bySku = new Map();
-
   for (const item of items) {
-    if (!bySku.has(item.sku)) {
-      bySku.set(item.sku, { sku: item.sku, name: item.name, entries: [] });
-    }
-
+    if (!bySku.has(item.sku)) bySku.set(item.sku, { sku: item.sku, name: item.name, entries: [] });
     const product = bySku.get(item.sku);
     if (!product.name && item.name) product.name = item.name;
-    product.entries.push({
-      branch: item.branch,
-      warehouse: item.warehouse,
-      label: item.label,
-      stock: item.stock,
-    });
+    product.entries.push({ branch: item.branch, warehouse: item.warehouse, label: item.label, stock: item.stock });
   }
-
   return bySku;
 }
 
 function summarize(product) {
   const branches = [];
   let available_stock = 0;
-
   for (const entry of product.entries) {
     available_stock += entry.stock;
-    branches.push({
-      branch: entry.branch,
-      warehouse: entry.warehouse,
-      label: entry.label,
-      stock: entry.stock,
-    });
+    branches.push({ branch: entry.branch, warehouse: entry.warehouse, label: entry.label, stock: entry.stock });
   }
+  return { mode: 'exact', sku: product.sku, name: product.name, available_stock, branches };
+}
 
-  return {
-    mode: 'exact',
-    sku: product.sku,
-    name: product.name,
-    available_stock,
-    branches,
-  };
+function paginateMatches(matches, mode, query, page) {
+  if (matches.length === 1) return { ...matches[0], mode, query, total_matches: 1, shown_matches: 1, page: 1, total_pages: 1 };
+  if (!matches.length) return null;
+  const totalPages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, Number.parseInt(page, 10) || 1), totalPages);
+  const start = (currentPage - 1) * PAGE_SIZE;
+  return { mode, query, total_matches: matches.length, shown_matches: Math.min(PAGE_SIZE, matches.length - start), page: currentPage, total_pages: totalPages, matches: matches.slice(start, start + PAGE_SIZE) };
 }
 
 function search(query, catalog, page = 1) {
   const raw = String(query || '').trim();
   if (!raw) return null;
-
   const normalized = normalizeSku(raw);
   if (catalog.has(normalized)) return summarize(catalog.get(normalized));
-
   if (/^[A-Z0-9][A-Z0-9\-_.]*$/.test(normalized)) {
-    const allMatches = Array.from(catalog.values())
-      .filter((product) => product.sku.startsWith(normalized))
-      .sort((a, b) => a.sku.localeCompare(b.sku, 'en'))
-      .map(summarize);
-    if (allMatches.length === 1) {
-      return {
-        ...allMatches[0],
-        mode: 'prefix',
-        query: raw,
-        total_matches: allMatches.length,
-        shown_matches: allMatches.length,
-        page: 1,
-        total_pages: 1,
-      };
-    }
-
-    if (allMatches.length > 1) {
-      const totalPages = Math.max(1, Math.ceil(allMatches.length / PAGE_SIZE));
-      const currentPage = Math.min(Math.max(1, Number.parseInt(page, 10) || 1), totalPages);
-      const start = (currentPage - 1) * PAGE_SIZE;
-      const matches = allMatches.slice(start, start + PAGE_SIZE);
-      return {
-        mode: 'prefix',
-        query: raw,
-        total_matches: allMatches.length,
-        shown_matches: matches.length,
-        page: currentPage,
-        total_pages: totalPages,
-        matches,
-      };
-    }
+    const matches = Array.from(catalog.values()).filter((product) => product.sku.startsWith(normalized)).sort((a, b) => a.sku.localeCompare(b.sku, 'en')).map(summarize);
+    const result = paginateMatches(matches, 'prefix', raw, page);
+    if (result) return result;
   }
-
-  const allMatches = Array.from(catalog.values())
-    .filter((product) => String(product.name || '').toLowerCase().includes(raw.toLowerCase()))
-    .sort((a, b) => a.sku.localeCompare(b.sku, 'en'))
-    .map(summarize);
-  if (allMatches.length === 1) {
-    return {
-      ...allMatches[0],
-      mode: 'name',
-      query: raw,
-      total_matches: allMatches.length,
-      shown_matches: allMatches.length,
-      page: 1,
-      total_pages: 1,
-    };
-  }
-
-  if (allMatches.length > 1) {
-    const totalPages = Math.max(1, Math.ceil(allMatches.length / PAGE_SIZE));
-    const currentPage = Math.min(Math.max(1, Number.parseInt(page, 10) || 1), totalPages);
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const matches = allMatches.slice(start, start + PAGE_SIZE);
-    return {
-      mode: 'name',
-      query: raw,
-      total_matches: allMatches.length,
-      shown_matches: matches.length,
-      page: currentPage,
-      total_pages: totalPages,
-      matches,
-    };
-  }
-
-  return null;
+  const matches = Array.from(catalog.values()).filter((product) => String(product.name || '').toLowerCase().includes(raw.toLowerCase())).sort((a, b) => a.sku.localeCompare(b.sku, 'en')).map(summarize);
+  return paginateMatches(matches, 'name', raw, page);
 }
 
 function renderIndex({ sku = '', result = null, error = '', source = CSV_SOURCE }) {
   const sourceLabel = source === 'github' ? 'GitHub' : 'Local';
-  const updatedAt = cache.loadedAt ? new Date(cache.loadedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
+  const updatedAt = cache.stockUpdatedAt ? new Date(cache.stockUpdatedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
   const liffId = String(process.env.LIFF_ID || '').trim();
   return INDEX_HTML
     .replaceAll('%%INITIAL_SKU%%', escapeHtml(sku))
@@ -380,8 +281,7 @@ function renderIndex({ sku = '', result = null, error = '', source = CSV_SOURCE 
 function constantTimeEqual(a, b) {
   const left = Buffer.from(String(a));
   const right = Buffer.from(String(b));
-  if (left.length !== right.length) return false;
-  return crypto.timingSafeEqual(left, right);
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
 function getBasicAuth(req) {
@@ -396,30 +296,19 @@ function getBasicAuth(req) {
 function isAdminAuthorized(req) {
   if (!ADMIN_PASSWORD) return false;
   const auth = getBasicAuth(req);
-  if (!auth) return false;
-  return constantTimeEqual(auth.id, ADMIN_ID) && constantTimeEqual(auth.password, ADMIN_PASSWORD);
+  return !!auth && constantTimeEqual(auth.id, ADMIN_ID) && constantTimeEqual(auth.password, ADMIN_PASSWORD);
 }
 
 function requireAdmin(req, res) {
   if (isAdminAuthorized(req)) return true;
-  res.writeHead(401, {
-    'Content-Type': 'text/plain; charset=utf-8',
-    'WWW-Authenticate': 'Basic realm="MSCC Stock Admin", charset="UTF-8"',
-  });
+  res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8', 'WWW-Authenticate': 'Basic realm="MSCC Stock Admin", charset="UTF-8"' });
   res.end(ADMIN_PASSWORD ? 'Login required' : 'Admin password is not configured');
   return false;
 }
 
 function renderAdminPage({ message = '', error = '' } = {}) {
-  const options = ALLOWED_STOCK_FILES
-    .map((file) => `<option value="${escapeHtml(file)}">${escapeHtml(file)}</option>`)
-    .join('');
-  const statusHtml = error
-    ? `<div class="alert error">${escapeHtml(error)}</div>`
-    : message
-      ? `<div class="alert ok">${escapeHtml(message)}</div>`
-      : '';
-
+  const requiredItems = ALLOWED_STOCK_FILES.map((file) => `<li><code>${escapeHtml(file)}</code></li>`).join('');
+  const statusHtml = error ? `<div class="alert error">${escapeHtml(error)}</div>` : message ? `<div class="alert ok">${escapeHtml(message)}</div>` : '';
   return `<!doctype html>
 <html lang="th">
 <head>
@@ -433,9 +322,19 @@ function renderAdminPage({ message = '', error = '' } = {}) {
     section { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; box-shadow: 0 12px 40px rgba(17, 24, 39, .08); }
     h1 { margin: 0 0 6px; font-size: 28px; }
     p { margin: 0 0 18px; color: #4b5563; line-height: 1.6; }
-    label { display: block; margin: 16px 0 8px; font-weight: 700; }
-    select, input[type="file"] { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font-size: 16px; }
+    ul { margin: 10px 0 0; padding-left: 20px; color: #374151; line-height: 1.8; }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; color: #0f766e; }
+    input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .dropzone { margin-top: 16px; border: 2px dashed #99f6e4; border-radius: 8px; padding: 28px 18px; background: #f0fdfa; text-align: center; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+    .dropzone.dragging { border-color: #0f766e; background: #ccfbf1; }
+    .dropzone strong { display: block; color: #0f766e; font-size: 18px; }
+    .dropzone span { display: block; margin-top: 6px; color: #4b5563; }
+    .file-list { margin-top: 14px; display: grid; gap: 8px; }
+    .file-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 8px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 14px; }
+    .file-row.good { border-color: #a7f3d0; background: #ecfdf5; }
+    .file-row.bad { border-color: #fecaca; background: #fef2f2; }
     button { margin-top: 18px; width: 100%; border: 0; border-radius: 8px; padding: 14px 16px; background: #0f766e; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
+    button:disabled { background: #9ca3af; cursor: not-allowed; }
     .alert { margin-bottom: 16px; border-radius: 8px; padding: 12px 14px; line-height: 1.5; }
     .ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
     .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
@@ -446,18 +345,45 @@ function renderAdminPage({ message = '', error = '' } = {}) {
   <main>
     <section>
       <h1>อัปเดตไฟล์ CSV</h1>
-      <p>เลือกไฟล์ CSV จากเครื่อง แล้วระบบจะอัปเดตเข้า ${escapeHtml(DATA_REPO)} ให้อัตโนมัติ</p>
+      <p>ลากไฟล์ CSV ทั้ง 4 ไฟล์มาวาง แล้วระบบจะตรวจชื่อไฟล์และความครบก่อนอัปเดตเข้า ${escapeHtml(DATA_REPO)}</p>
       ${statusHtml}
-      <form method="post" action="/admin/upload" enctype="multipart/form-data">
-        <label for="fileName">ไฟล์ที่จะอัปเดต</label>
-        <select id="fileName" name="fileName" required>${options}</select>
-        <label for="csvFile">เลือกไฟล์ CSV</label>
-        <input id="csvFile" name="csvFile" type="file" accept=".csv,.CSV,text/csv" required />
-        <button type="submit">อัปเดตสต็อก</button>
+      <div class="note">ไฟล์ที่ต้องมีครบ:</div>
+      <ul>${requiredItems}</ul>
+      <form id="upload-form" method="post" action="/admin/upload" enctype="multipart/form-data">
+        <label id="dropzone" class="dropzone" for="csvFiles">
+          <strong>ลากไฟล์มาวางที่นี่</strong>
+          <span>หรือกดเพื่อเลือกไฟล์ CSV ทั้ง 4 ไฟล์</span>
+        </label>
+        <input id="csvFiles" name="csvFiles" type="file" accept=".csv,.CSV,text/csv" multiple required />
+        <div id="file-list" class="file-list"></div>
+        <button id="submit-button" type="submit" disabled>อัปเดตสต็อก</button>
       </form>
-      <div class="note">หลังอัปเดตสำเร็จ แอปค้นหาสต็อกจะอ่านข้อมูลใหม่จาก GitHub raw URL</div>
+      <div class="note">หลังอัปเดตสำเร็จ หน้า search จะแสดงเวลาอัปเดตไฟล์ล่าสุด</div>
     </section>
   </main>
+  <script>
+    const requiredFiles = ${JSON.stringify(ALLOWED_STOCK_FILES)};
+    const input = document.getElementById('csvFiles');
+    const dropzone = document.getElementById('dropzone');
+    const fileList = document.getElementById('file-list');
+    const submitButton = document.getElementById('submit-button');
+    function renderFiles(files) {
+      const names = Array.from(files || []).map((file) => file.name);
+      const missing = requiredFiles.filter((name) => !names.includes(name));
+      const unexpected = names.filter((name) => !requiredFiles.includes(name));
+      const duplicate = names.filter((name, index) => names.indexOf(name) !== index);
+      const rows = requiredFiles.map((name) => '<div class="file-row ' + (names.includes(name) ? 'good' : 'bad') + '"><span><code>' + name + '</code></span><span>' + (names.includes(name) ? 'พร้อม' : 'ยังไม่มี') + '</span></div>');
+      for (const name of unexpected) rows.push('<div class="file-row bad"><span><code>' + name + '</code></span><span>ชื่อไฟล์ไม่ถูกต้อง</span></div>');
+      for (const name of duplicate) rows.push('<div class="file-row bad"><span><code>' + name + '</code></span><span>ไฟล์ซ้ำ</span></div>');
+      fileList.innerHTML = rows.join('');
+      submitButton.disabled = missing.length > 0 || unexpected.length > 0 || duplicate.length > 0;
+    }
+    input.addEventListener('change', () => renderFiles(input.files));
+    dropzone.addEventListener('dragover', (event) => { event.preventDefault(); dropzone.classList.add('dragging'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragging'));
+    dropzone.addEventListener('drop', (event) => { event.preventDefault(); dropzone.classList.remove('dragging'); input.files = event.dataTransfer.files; renderFiles(input.files); });
+    renderFiles([]);
+  </script>
 </body>
 </html>`;
 }
@@ -498,17 +424,14 @@ function parseMultipart(buffer, boundary) {
   const fields = {};
   const files = {};
   let cursor = buffer.indexOf(delimiter);
-
   while (cursor !== -1) {
     let partStart = cursor + delimiter.length;
     if (buffer.slice(partStart, partStart + 2).toString() === '--') break;
     if (buffer.slice(partStart, partStart + 2).toString() === '\r\n') partStart += 2;
-
     const headerEnd = buffer.indexOf(Buffer.from('\r\n\r\n'), partStart);
     if (headerEnd === -1) break;
     const next = buffer.indexOf(delimiter, headerEnd + 4);
     if (next === -1) break;
-
     const headerText = buffer.slice(partStart, headerEnd).toString('utf8');
     const headers = Object.fromEntries(headerText.split('\r\n').map((line) => {
       const idx = line.indexOf(':');
@@ -518,66 +441,95 @@ function parseMultipart(buffer, boundary) {
     let dataEnd = next;
     if (buffer.slice(dataEnd - 2, dataEnd).toString() === '\r\n') dataEnd -= 2;
     const data = buffer.slice(headerEnd + 4, dataEnd);
-
     if (disposition.name) {
       if (disposition.filename !== undefined) {
-        files[disposition.name] = { filename: disposition.filename, data, contentType: headers['content-type'] || '' };
+        if (!files[disposition.name]) files[disposition.name] = [];
+        files[disposition.name].push({ filename: disposition.filename, data, contentType: headers['content-type'] || '' });
       } else {
         fields[disposition.name] = data.toString('utf8');
       }
     }
     cursor = next;
   }
-
   return { fields, files };
 }
 
-async function updateStockCsv(fileName, csvBuffer) {
+function githubHeaders() {
   if (!GITHUB_TOKEN) throw new Error('ยังไม่ได้ตั้งค่า GITHUB_TOKEN');
-  if (!ALLOWED_STOCK_FILES.includes(fileName)) throw new Error('ชื่อไฟล์ไม่อยู่ในรายการที่อนุญาต');
-  if (!csvBuffer || csvBuffer.length === 0) throw new Error('ไฟล์ CSV ว่าง');
-
-  const apiPath = `data/${fileName}`;
-  const encodedPath = apiPath.split('/').map(encodeURIComponent).join('/');
-  const apiUrl = `https://api.github.com/repos/${DATA_REPO}/contents/${encodedPath}`;
-  const headers = {
+  return {
     'Accept': 'application/vnd.github+json',
     'Authorization': `Bearer ${GITHUB_TOKEN}`,
     'Content-Type': 'application/json',
     'User-Agent': 'mscc-check-admin',
     'X-GitHub-Api-Version': '2022-11-28',
   };
+}
 
+async function putGitHubFile(apiPath, contentBuffer, message) {
+  const encodedPath = apiPath.split('/').map(encodeURIComponent).join('/');
+  const apiUrl = `https://api.github.com/repos/${DATA_REPO}/contents/${encodedPath}`;
+  const headers = githubHeaders();
   const current = await fetch(`${apiUrl}?ref=${encodeURIComponent(DATA_BRANCH)}`, { headers });
   const currentText = await current.text();
-  if (!current.ok) throw new Error(`อ่านไฟล์เดิมจาก GitHub ไม่ได้: ${current.status} ${currentText.slice(0, 160)}`);
-  const currentJson = JSON.parse(currentText);
-
+  let sha = '';
+  if (current.ok) sha = JSON.parse(currentText).sha;
+  else if (current.status !== 404) throw new Error(`อ่านไฟล์เดิมจาก GitHub ไม่ได้: ${current.status} ${currentText.slice(0, 160)}`);
   const updated = await fetch(apiUrl, {
     method: 'PUT',
     headers,
-    body: JSON.stringify({
-      message: `Update ${fileName} from stock admin`,
-      content: csvBuffer.toString('base64'),
-      sha: currentJson.sha,
-      branch: DATA_BRANCH,
-    }),
+    body: JSON.stringify({ message, content: contentBuffer.toString('base64'), ...(sha ? { sha } : {}), branch: DATA_BRANCH }),
   });
   const updatedText = await updated.text();
   if (!updated.ok) throw new Error(`อัปเดต GitHub ไม่สำเร็จ: ${updated.status} ${updatedText.slice(0, 160)}`);
-  cache = { fingerprint: '', loadedAt: 0, catalog: new Map(), inventory: [] };
   return JSON.parse(updatedText);
+}
+
+function validateStockUploads(uploadList) {
+  const uploads = (uploadList || []).filter((file) => file && file.filename);
+  const byName = new Map();
+  const duplicates = [];
+  for (const upload of uploads) {
+    const fileName = path.basename(upload.filename);
+    if (byName.has(fileName)) duplicates.push(fileName);
+    else byName.set(fileName, upload);
+  }
+  const missing = ALLOWED_STOCK_FILES.filter((fileName) => !byName.has(fileName));
+  const unexpected = Array.from(byName.keys()).filter((fileName) => !ALLOWED_STOCK_FILES.includes(fileName));
+  if (missing.length || unexpected.length || duplicates.length) {
+    const parts = [];
+    if (missing.length) parts.push(`ไฟล์ไม่ครบ: ${missing.join(', ')}`);
+    if (unexpected.length) parts.push(`ชื่อไฟล์ไม่ถูกต้อง: ${unexpected.join(', ')}`);
+    if (duplicates.length) parts.push(`ไฟล์ซ้ำ: ${duplicates.join(', ')}`);
+    throw new Error(parts.join(' | '));
+  }
+  return ALLOWED_STOCK_FILES.map((fileName) => {
+    const upload = byName.get(fileName);
+    if (!upload.data || upload.data.length === 0) throw new Error(`ไฟล์ว่าง: ${fileName}`);
+    return { fileName, data: upload.data };
+  });
+}
+
+async function updateStockCsvFiles(uploadList) {
+  const files = validateStockUploads(uploadList);
+  const uploadedAt = new Date().toISOString();
+  const updatedFiles = [];
+  for (const file of files) {
+    await putGitHubFile(`data/${file.fileName}`, file.data, `Update ${file.fileName} from stock admin`);
+    updatedFiles.push({ name: file.fileName, size: file.data.length, updated_at: uploadedAt });
+  }
+  const metadata = { uploaded_at: uploadedAt, files: updatedFiles };
+  await putGitHubFile(STOCK_METADATA_PATH, Buffer.from(`${JSON.stringify(metadata, null, 2)}\n`, 'utf8'), 'Update stock upload metadata');
+  cache = { fingerprint: '', loadedAt: 0, stockUpdatedAt: uploadedAt, stockFiles: updatedFiles, catalog: new Map(), inventory: [] };
+  return metadata;
 }
 
 async function handleAdmin(req, res, url) {
   if (!requireAdmin(req, res)) return true;
-
   if (req.method === 'GET' && url.pathname === '/admin') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderAdminPage({ message: url.searchParams.get('message') || '', error: url.searchParams.get('error') || '' }));
     return true;
   }
-
   if (req.method === 'POST' && url.pathname === '/admin/upload') {
     try {
       const contentType = req.headers['content-type'] || '';
@@ -585,11 +537,11 @@ async function handleAdmin(req, res, url) {
       if (!match) throw new Error('ไม่พบ multipart boundary');
       const body = await readBody(req);
       const parsed = parseMultipart(body, match[1] || match[2]);
-      const fileName = String(parsed.fields.fileName || '').trim();
-      const upload = parsed.files.csvFile;
-      if (!upload) throw new Error('กรุณาเลือกไฟล์ CSV');
-      await updateStockCsv(fileName, upload.data);
-      res.writeHead(303, { Location: `/admin?message=${encodeURIComponent(`อัปเดต ${fileName} สำเร็จ`)}` });
+      const uploads = parsed.files.csvFiles || [];
+      if (!uploads.length) throw new Error('กรุณาเลือกไฟล์ CSV ทั้ง 4 ไฟล์');
+      const metadata = await updateStockCsvFiles(uploads);
+      const updatedAt = new Date(metadata.uploaded_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+      res.writeHead(303, { Location: `/admin?message=${encodeURIComponent(`อัปเดตครบ ${ALLOWED_STOCK_FILES.length} ไฟล์แล้ว เวลา ${updatedAt}`)}` });
       res.end();
     } catch (error) {
       const message = error && error.message ? error.message : 'อัปเดตไม่สำเร็จ';
@@ -598,62 +550,59 @@ async function handleAdmin(req, res, url) {
     }
     return true;
   }
-
   res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end('Not found');
   return true;
 }
 
-let cache = { fingerprint: '', loadedAt: 0, catalog: new Map(), inventory: [] };
+let cache = { fingerprint: '', loadedAt: 0, stockUpdatedAt: null, stockFiles: [], catalog: new Map(), inventory: [] };
 
 async function refreshIfNeeded() {
   const now = Date.now();
-
   let fingerprint = '';
   let inventory = [];
-
+  let stockUpdatedAt = null;
+  let stockFiles = [];
   if (CSV_SOURCE === 'github') {
     const urls = GITHUB_RAW_URLS.length ? GITHUB_RAW_URLS : [GITHUB_RAW_URL_WT].filter(Boolean);
-    const files = await Promise.all(urls.map(async (url) => ({ url, text: await fetchRemoteText(url) })));
+    const [files, metadata] = await Promise.all([
+      Promise.all(urls.map(async (url) => ({ url, text: await fetchRemoteText(url) }))),
+      fetchStockMetadata().catch(() => null),
+    ]);
+    if (metadata && metadata.uploaded_at) {
+      stockUpdatedAt = metadata.uploaded_at;
+      stockFiles = Array.isArray(metadata.files) ? metadata.files : [];
+    }
     fingerprint = `remote:${crypto.createHash('sha1').update(files.map(({ url, text }) => `${url}:${text}`).join('\n')).digest('hex')}`;
     if (fingerprint === cache.fingerprint) {
       cache.loadedAt = now;
+      cache.stockUpdatedAt = stockUpdatedAt || cache.stockUpdatedAt;
+      cache.stockFiles = stockFiles.length ? stockFiles : cache.stockFiles;
       return cache;
     }
     inventory = files.flatMap(({ url, text }) => loadInventoryFromText(text, url));
   } else {
-    const fileStats = DATA_FILES
-      .filter((filePath) => fs.existsSync(filePath))
-      .map((filePath) => ({ filePath, stat: fs.statSync(filePath) }));
+    const fileStats = DATA_FILES.filter((filePath) => fs.existsSync(filePath)).map((filePath) => ({ filePath, stat: fs.statSync(filePath) }));
     fingerprint = `local:${fileStats.map(({ filePath, stat }) => `${path.basename(filePath)}:${stat.mtimeMs}:${stat.size}`).join('|')}`;
     if (fingerprint === cache.fingerprint) {
       cache.loadedAt = now;
       return cache;
     }
-    inventory = fileStats.flatMap(({ filePath }) => {
-      const text = CSV_DECODER.decode(fs.readFileSync(filePath));
-      return loadInventoryFromText(text, filePath);
-    });
+    stockUpdatedAt = fileStats.reduce((latest, { stat }) => Math.max(latest, stat.mtimeMs), 0) || null;
+    stockFiles = fileStats.map(({ filePath, stat }) => ({ name: path.basename(filePath), size: stat.size, updated_at: new Date(stat.mtimeMs).toISOString() }));
+    inventory = fileStats.flatMap(({ filePath }) => loadInventoryFromText(CSV_DECODER.decode(fs.readFileSync(filePath)), filePath));
   }
-
-  cache = {
-    fingerprint,
-    loadedAt: now,
-    inventory,
-    catalog: buildCatalog(inventory),
-  };
+  cache = { fingerprint, loadedAt: now, stockUpdatedAt, stockFiles, inventory, catalog: buildCatalog(inventory) };
   console.log(`Loaded ${inventory.length} rows, ${cache.catalog.size} unique SKUs from ${CSV_SOURCE}.`);
   return cache;
 }
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-
   if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) {
     await handleAdmin(req, res, url);
     return;
   }
-
   let state;
   try {
     state = await refreshIfNeeded();
@@ -673,7 +622,6 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ error: 'load_failed', message }));
     return;
   }
-
   if (url.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
@@ -681,11 +629,12 @@ const server = http.createServer(async (req, res) => {
       rows: state.inventory.length,
       skus: state.catalog.size,
       source: CSV_SOURCE,
-      updated_at: cache.loadedAt ? new Date(cache.loadedAt).toISOString() : null,
+      updated_at: cache.stockUpdatedAt ? new Date(cache.stockUpdatedAt).toISOString() : null,
+      loaded_at: cache.loadedAt ? new Date(cache.loadedAt).toISOString() : null,
+      files: cache.stockFiles,
     }));
     return;
   }
-
   if (url.pathname === '/search') {
     const query = url.searchParams.get('sku') || url.searchParams.get('q') || '';
     const page = url.searchParams.get('page') || '1';
@@ -695,27 +644,19 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: 'not_found', message: 'ไม่พบสินค้า', query }));
       return;
     }
-
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
-      ...result,
-      source: CSV_SOURCE,
-      updated_at: cache.loadedAt ? new Date(cache.loadedAt).toISOString() : null,
-    }));
+    res.end(JSON.stringify({ ...result, source: CSV_SOURCE, updated_at: cache.stockUpdatedAt ? new Date(cache.stockUpdatedAt).toISOString() : null }));
     return;
   }
-
   if (url.pathname === '/') {
     const initialSku = url.searchParams.get('sku') || '';
     const initialError = url.searchParams.get('error') || '';
     const page = url.searchParams.get('page') || '1';
     const initialResult = initialSku ? search(initialSku, state.catalog, page) : null;
-
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderIndex({ sku: initialSku, result: initialResult, error: initialError, source: CSV_SOURCE }));
     return;
   }
-
   res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end('Not found');
 });
