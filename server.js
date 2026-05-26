@@ -46,6 +46,19 @@ const GITHUB_RAW_URLS = (process.env.GITHUB_RAW_URLS || '')
   .filter(Boolean);
 const GITHUB_RAW_URL_WT = process.env.GITHUB_RAW_URL_WT || process.env.GITHUB_RAW_URL || '';
 const CSV_DECODER = new TextDecoder('windows-874');
+const ADMIN_ID = String(process.env.ADMIN_ID || 'mscc-acc');
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || '');
+const GITHUB_TOKEN = String(process.env.GITHUB_TOKEN || '');
+const DATA_REPO = String(process.env.DATA_REPO || 'paphavinmusicconcept-prog/mscc-stock-data');
+const DATA_BRANCH = String(process.env.DATA_BRANCH || 'main');
+const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES || 15 * 1024 * 1024);
+const ALLOWED_STOCK_FILES = [
+  'stock_mscc.CSV',
+  'stock_mscc_werehouse.CSV',
+  'stock_beh_hq.CSV',
+  'stock_beh_werehouse.CSV',
+  'stock_wt.CSV',
+];
 
 function parseCsv(text) {
   const rows = [];
@@ -119,24 +132,33 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 const SECTION_META = {
-  '01': { branch: '01', warehouse: 'คลังมิวสิกคอนเซพท์' },
-  '02': { branch: '02', warehouse: 'ใบยืมมิวสิกคอนเซพท์' },
-  '03': { branch: '03', warehouse: 'สินค้ารออะไหล่, เสีย - มิวสิกคอนเซพท์' },
+  '01': { branch: '01', warehouse: 'คลังมิวสิคคอนเซพท์' },
+  '02': { branch: '02', warehouse: 'ใบยืมมิวสิคคอนเซพท์' },
+  '03': { branch: '03', warehouse: 'สินค้ารออะไหล่, เสีย - มิวสิคคอนเซพท์' },
   '04': { branch: '04', warehouse: 'สินค้าฝากขาย' },
   '05': { branch: '05', warehouse: 'จองสินค้า, มัดจำสินค้า' },
-  '06': { branch: '06', warehouse: 'คลังฝาก มิวสิกคอนเซพท์ - สนง.เพชรบุรี' },
+  '06': { branch: '06', warehouse: 'คลังฝาก มิวสิคคอนเซพท์ - สนง.เพชรบุรี' },
 };
 
 const DISPLAY_WAREHOUSES = new Map([
   ['stock_beh_hq.csv|01|คลังเบ๊', 'คลังเบ๊'],
-  ['stock_mscc.csv|01|คลังมิวสิกคอนเซพท์', 'คลังมิวสิกคอนเซพท์'],
+  ['stock_mscc.csv|01|คลังมิวสิคคอนเซพท์', 'คลังมิวสิคคอนเซพท์'],
   ['stock_mscc_werehouse.csv|04|คลังสำนักงานเพชรบุรีตัดใหม่', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
   ['stock_beh_werehouse.csv|04|คลังสำนักงานเพชรบุรีตัดใหม่', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
-  ['stock_mscc.csv|06|คลังฝาก มิวสิกคอนเซพท์ - สนง.เพชรบุรี', 'คลังฝาก MSCC'],
+  ['stock_mscc.csv|06|คลังฝาก มิวสิคคอนเซพท์ - สนง.เพชรบุรี', 'คลังฝาก MSCC'],
   ['stock_mscc_werehouse.csv|07|เบ๊จองสินค้า-เพชรบุรีฯ', 'เบ๊จอง คลังเพชรบุรีฯ'],
   ['stock_beh_werehouse.csv|07|เบ๊จอง สินค้าคลังเพชรบุรีฯ', 'เบ๊จอง คลังเพชรบุรีฯ'],
-  ['stock_beh_werehouse.csv|08|มิวสิกจอง สินค้าคลังเพชรบุรีฯ', 'Mscc จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_werehouse.csv|08|มิวสิคจอง สินค้าคลังเพชรบุรีฯ', 'Mscc จอง คลังเพชรบุรีฯ'],
 ]);
 
 function getBranchFromFile(filePath) {
@@ -346,13 +368,240 @@ function renderIndex({ sku = '', result = null, error = '', source = CSV_SOURCE 
   const updatedAt = cache.loadedAt ? new Date(cache.loadedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
   const liffId = String(process.env.LIFF_ID || '').trim();
   return INDEX_HTML
-    .replaceAll('%%INITIAL_SKU%%', sku.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'))
+    .replaceAll('%%INITIAL_SKU%%', escapeHtml(sku))
     .replaceAll('%%INITIAL_RESULT%%', result ? JSON.stringify(result) : 'null')
-    .replaceAll('%%INITIAL_ERROR%%', error.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'))
+    .replaceAll('%%INITIAL_ERROR%%', escapeHtml(error))
     .replaceAll('%%INITIAL_SOURCE%%', source)
     .replaceAll('%%INITIAL_SOURCE_LABEL%%', sourceLabel)
     .replaceAll('%%INITIAL_UPDATED_AT%%', updatedAt)
-    .replaceAll('%%LIFF_ID%%', liffId.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'));
+    .replaceAll('%%LIFF_ID%%', escapeHtml(liffId));
+}
+
+function constantTimeEqual(a, b) {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function getBasicAuth(req) {
+  const header = req.headers.authorization || '';
+  if (!header.toLowerCase().startsWith('basic ')) return null;
+  const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
+  const idx = decoded.indexOf(':');
+  if (idx === -1) return null;
+  return { id: decoded.slice(0, idx), password: decoded.slice(idx + 1) };
+}
+
+function isAdminAuthorized(req) {
+  if (!ADMIN_PASSWORD) return false;
+  const auth = getBasicAuth(req);
+  if (!auth) return false;
+  return constantTimeEqual(auth.id, ADMIN_ID) && constantTimeEqual(auth.password, ADMIN_PASSWORD);
+}
+
+function requireAdmin(req, res) {
+  if (isAdminAuthorized(req)) return true;
+  res.writeHead(401, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'WWW-Authenticate': 'Basic realm="MSCC Stock Admin", charset="UTF-8"',
+  });
+  res.end(ADMIN_PASSWORD ? 'Login required' : 'Admin password is not configured');
+  return false;
+}
+
+function renderAdminPage({ message = '', error = '' } = {}) {
+  const options = ALLOWED_STOCK_FILES
+    .map((file) => `<option value="${escapeHtml(file)}">${escapeHtml(file)}</option>`)
+    .join('');
+  const statusHtml = error
+    ? `<div class="alert error">${escapeHtml(error)}</div>`
+    : message
+      ? `<div class="alert ok">${escapeHtml(message)}</div>`
+      : '';
+
+  return `<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MSCC Stock Admin</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; background: #f6f7fb; }
+    main { width: min(720px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0; }
+    section { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; box-shadow: 0 12px 40px rgba(17, 24, 39, .08); }
+    h1 { margin: 0 0 6px; font-size: 28px; }
+    p { margin: 0 0 18px; color: #4b5563; line-height: 1.6; }
+    label { display: block; margin: 16px 0 8px; font-weight: 700; }
+    select, input[type="file"] { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font-size: 16px; }
+    button { margin-top: 18px; width: 100%; border: 0; border-radius: 8px; padding: 14px 16px; background: #0f766e; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
+    .alert { margin-bottom: 16px; border-radius: 8px; padding: 12px 14px; line-height: 1.5; }
+    .ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .note { margin-top: 16px; font-size: 13px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <main>
+    <section>
+      <h1>อัปเดตไฟล์ CSV</h1>
+      <p>เลือกไฟล์ CSV จากเครื่อง แล้วระบบจะอัปเดตเข้า ${escapeHtml(DATA_REPO)} ให้อัตโนมัติ</p>
+      ${statusHtml}
+      <form method="post" action="/admin/upload" enctype="multipart/form-data">
+        <label for="fileName">ไฟล์ที่จะอัปเดต</label>
+        <select id="fileName" name="fileName" required>${options}</select>
+        <label for="csvFile">เลือกไฟล์ CSV</label>
+        <input id="csvFile" name="csvFile" type="file" accept=".csv,.CSV,text/csv" required />
+        <button type="submit">อัปเดตสต็อก</button>
+      </form>
+      <div class="note">หลังอัปเดตสำเร็จ แอปค้นหาสต็อกจะอ่านข้อมูลใหม่จาก GitHub raw URL</div>
+    </section>
+  </main>
+</body>
+</html>`;
+}
+
+function readBody(req, limitBytes = MAX_UPLOAD_BYTES) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > limitBytes) {
+        reject(new Error('ไฟล์ใหญ่เกินกำหนด'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+function parseContentDisposition(header) {
+  const result = {};
+  for (const part of String(header || '').split(';')) {
+    const [rawKey, ...rawValue] = part.trim().split('=');
+    const key = rawKey.trim().toLowerCase();
+    if (!key) continue;
+    let value = rawValue.join('=').trim();
+    if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+    result[key] = value;
+  }
+  return result;
+}
+
+function parseMultipart(buffer, boundary) {
+  const delimiter = Buffer.from(`--${boundary}`);
+  const fields = {};
+  const files = {};
+  let cursor = buffer.indexOf(delimiter);
+
+  while (cursor !== -1) {
+    let partStart = cursor + delimiter.length;
+    if (buffer.slice(partStart, partStart + 2).toString() === '--') break;
+    if (buffer.slice(partStart, partStart + 2).toString() === '\r\n') partStart += 2;
+
+    const headerEnd = buffer.indexOf(Buffer.from('\r\n\r\n'), partStart);
+    if (headerEnd === -1) break;
+    const next = buffer.indexOf(delimiter, headerEnd + 4);
+    if (next === -1) break;
+
+    const headerText = buffer.slice(partStart, headerEnd).toString('utf8');
+    const headers = Object.fromEntries(headerText.split('\r\n').map((line) => {
+      const idx = line.indexOf(':');
+      return idx === -1 ? ['', ''] : [line.slice(0, idx).trim().toLowerCase(), line.slice(idx + 1).trim()];
+    }).filter(([key]) => key));
+    const disposition = parseContentDisposition(headers['content-disposition']);
+    let dataEnd = next;
+    if (buffer.slice(dataEnd - 2, dataEnd).toString() === '\r\n') dataEnd -= 2;
+    const data = buffer.slice(headerEnd + 4, dataEnd);
+
+    if (disposition.name) {
+      if (disposition.filename !== undefined) {
+        files[disposition.name] = { filename: disposition.filename, data, contentType: headers['content-type'] || '' };
+      } else {
+        fields[disposition.name] = data.toString('utf8');
+      }
+    }
+    cursor = next;
+  }
+
+  return { fields, files };
+}
+
+async function updateStockCsv(fileName, csvBuffer) {
+  if (!GITHUB_TOKEN) throw new Error('ยังไม่ได้ตั้งค่า GITHUB_TOKEN');
+  if (!ALLOWED_STOCK_FILES.includes(fileName)) throw new Error('ชื่อไฟล์ไม่อยู่ในรายการที่อนุญาต');
+  if (!csvBuffer || csvBuffer.length === 0) throw new Error('ไฟล์ CSV ว่าง');
+
+  const apiPath = `data/${fileName}`;
+  const encodedPath = apiPath.split('/').map(encodeURIComponent).join('/');
+  const apiUrl = `https://api.github.com/repos/${DATA_REPO}/contents/${encodedPath}`;
+  const headers = {
+    'Accept': 'application/vnd.github+json',
+    'Authorization': `Bearer ${GITHUB_TOKEN}`,
+    'Content-Type': 'application/json',
+    'User-Agent': 'mscc-check-admin',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+
+  const current = await fetch(`${apiUrl}?ref=${encodeURIComponent(DATA_BRANCH)}`, { headers });
+  const currentText = await current.text();
+  if (!current.ok) throw new Error(`อ่านไฟล์เดิมจาก GitHub ไม่ได้: ${current.status} ${currentText.slice(0, 160)}`);
+  const currentJson = JSON.parse(currentText);
+
+  const updated = await fetch(apiUrl, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({
+      message: `Update ${fileName} from stock admin`,
+      content: csvBuffer.toString('base64'),
+      sha: currentJson.sha,
+      branch: DATA_BRANCH,
+    }),
+  });
+  const updatedText = await updated.text();
+  if (!updated.ok) throw new Error(`อัปเดต GitHub ไม่สำเร็จ: ${updated.status} ${updatedText.slice(0, 160)}`);
+  cache = { fingerprint: '', loadedAt: 0, catalog: new Map(), inventory: [] };
+  return JSON.parse(updatedText);
+}
+
+async function handleAdmin(req, res, url) {
+  if (!requireAdmin(req, res)) return true;
+
+  if (req.method === 'GET' && url.pathname === '/admin') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderAdminPage({ message: url.searchParams.get('message') || '', error: url.searchParams.get('error') || '' }));
+    return true;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/admin/upload') {
+    try {
+      const contentType = req.headers['content-type'] || '';
+      const match = contentType.match(/boundary=(?:(?:"([^"]+)")|([^;]+))/i);
+      if (!match) throw new Error('ไม่พบ multipart boundary');
+      const body = await readBody(req);
+      const parsed = parseMultipart(body, match[1] || match[2]);
+      const fileName = String(parsed.fields.fileName || '').trim();
+      const upload = parsed.files.csvFile;
+      if (!upload) throw new Error('กรุณาเลือกไฟล์ CSV');
+      await updateStockCsv(fileName, upload.data);
+      res.writeHead(303, { Location: `/admin?message=${encodeURIComponent(`อัปเดต ${fileName} สำเร็จ`)}` });
+      res.end();
+    } catch (error) {
+      const message = error && error.message ? error.message : 'อัปเดตไม่สำเร็จ';
+      res.writeHead(303, { Location: `/admin?error=${encodeURIComponent(message)}` });
+      res.end();
+    }
+    return true;
+  }
+
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end('Not found');
+  return true;
 }
 
 let cache = { fingerprint: '', loadedAt: 0, catalog: new Map(), inventory: [] };
@@ -399,6 +648,12 @@ async function refreshIfNeeded() {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
+  if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) {
+    await handleAdmin(req, res, url);
+    return;
+  }
+
   let state;
   try {
     state = await refreshIfNeeded();
