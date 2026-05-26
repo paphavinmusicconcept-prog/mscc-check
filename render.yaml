@@ -10,8 +10,6 @@ services:
         value: production
       - key: CSV_SOURCE
         value: github
-      - key: CACHE_TTL_MS
-        value: "60000"
       - key: PAGE_SIZE
         value: "20"
       - key: GITHUB_RAW_URLS

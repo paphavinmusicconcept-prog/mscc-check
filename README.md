@@ -24,7 +24,7 @@ mscc-stock-data/
 1. เปิดไฟล์ CSV ใน GitHub web
 2. แก้ไขหรือแทนที่ไฟล์ CSV ตามต้องการ
 3. Commit การเปลี่ยนแปลง
-4. แอปนี้จะอ่าน raw CSV URL และอัปเดตตามรอบ cache ถัดไป
+4. แอปนี้จะอ่าน raw CSV URL ใหม่ทุกครั้งที่มีคำขอ เพื่อให้ข้อมูลล่าสุดแสดงทันทีหลังอัปเดต
 
 ## การตั้งค่า
 
@@ -34,7 +34,6 @@ mscc-stock-data/
 LIFF_ID=
 CSV_SOURCE=github
 GITHUB_RAW_URLS=https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc_werehouse.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_hq.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_werehouse.CSV
-CACHE_TTL_MS=60000
 ```
 
 ## LIFF

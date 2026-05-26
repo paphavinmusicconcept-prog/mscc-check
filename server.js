@@ -45,7 +45,6 @@ const GITHUB_RAW_URLS = (process.env.GITHUB_RAW_URLS || '')
   .map((url) => url.trim())
   .filter(Boolean);
 const GITHUB_RAW_URL_WT = process.env.GITHUB_RAW_URL_WT || process.env.GITHUB_RAW_URL || '';
-const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 60_000);
 const CSV_DECODER = new TextDecoder('windows-874');
 
 function parseCsv(text) {
@@ -206,7 +205,9 @@ function loadInventoryFromText(text, filePath = '') {
 
 async function fetchRemoteText(url) {
   if (!url) throw new Error('Missing GITHUB_RAW_URLS, GITHUB_RAW_URL_WT, or GITHUB_RAW_URL');
-  const response = await fetch(url, {
+  const parsed = new URL(url);
+  parsed.searchParams.set('_', String(Date.now()));
+  const response = await fetch(parsed.toString(), {
     headers: {
       'Cache-Control': 'no-cache',
       'Pragma': 'no-cache',
@@ -358,7 +359,6 @@ let cache = { fingerprint: '', loadedAt: 0, catalog: new Map(), inventory: [] };
 
 async function refreshIfNeeded() {
   const now = Date.now();
-  if (cache.loadedAt && (now - cache.loadedAt) < CACHE_TTL_MS) return cache;
 
   let fingerprint = '';
   let inventory = [];
