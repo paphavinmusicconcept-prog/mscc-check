@@ -14,5 +14,15 @@ services:
         value: "20"
       - key: GITHUB_RAW_URLS
         value: https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc_werehouse.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_hq.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_werehouse.CSV
+      - key: DATA_REPO
+        value: paphavinmusicconcept-prog/mscc-stock-data
+      - key: DATA_BRANCH
+        value: main
+      - key: ADMIN_ID
+        value: mscc-acc
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
       - key: LIFF_ID
         sync: false
