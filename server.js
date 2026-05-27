@@ -34,6 +34,8 @@ const DATA_BRANCH = String(process.env.DATA_BRANCH || 'main');
 const CSV_SOURCE = String(process.env.CSV_SOURCE || '').trim().toLowerCase() || 'github';
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES || 15 * 1024 * 1024);
 const GITHUB_REFRESH_TTL_MS = Number(process.env.GITHUB_REFRESH_TTL_MS || 60 * 1000);
+const ADMIN_PREVIEW_TTL_MS = Number(process.env.ADMIN_PREVIEW_TTL_MS || 10 * 60 * 1000);
+const ADMIN_PREVIEW_LIMIT = Number(process.env.ADMIN_PREVIEW_LIMIT || 3);
 const STOCK_METADATA_PATH = 'data/stock-upload-meta.json';
 const ALLOWED_STOCK_FILES = [
   'stock_mscc.CSV',
@@ -52,14 +54,14 @@ const GITHUB_DATA_PATHS = (process.env.GITHUB_DATA_PATHS || ALLOWED_STOCK_FILES.
   .filter(Boolean);
 
 const DEFAULT_DISPLAY_LABELS = new Map([
-  ['stock_beh_hq.csv|BEH', 'คลังเบ๊'],
-  ['stock_mscc.csv|MSCC', 'คลังมิวสิคคอนเซ็พท์'],
-  ['stock_mscc_werehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
-  ['stock_beh_werehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
-  ['stock_mscc.csv|06', 'คลังฝาก MSCC'],
-  ['stock_mscc_werehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
-  ['stock_beh_werehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
-  ['stock_beh_werehouse.csv|08', 'Mscc จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_hq.csv|BEH', 'à¸„à¸¥à¸±à¸‡à¹€à¸šà¹Š'],
+  ['stock_mscc.csv|MSCC', 'à¸„à¸¥à¸±à¸‡à¸¡à¸´à¸§à¸ªà¸´à¸„à¸„à¸­à¸™à¹€à¸‹à¸žà¸—à¹Œ'],
+  ['stock_mscc_werehouse.csv|04', 'à¸„à¸¥à¸±à¸‡à¸ªà¸³à¸™à¸±à¸à¸‡à¸²à¸™à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸•à¸±à¸”à¹ƒà¸«à¸¡à¹ˆ'],
+  ['stock_beh_werehouse.csv|04', 'à¸„à¸¥à¸±à¸‡à¸ªà¸³à¸™à¸±à¸à¸‡à¸²à¸™à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸•à¸±à¸”à¹ƒà¸«à¸¡à¹ˆ'],
+  ['stock_mscc.csv|06', 'à¸„à¸¥à¸±à¸‡à¸à¸²à¸ MSCC'],
+  ['stock_mscc_werehouse.csv|07', 'à¹€à¸šà¹Šà¸ˆà¸­à¸‡ à¸„à¸¥à¸±à¸‡à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸¯'],
+  ['stock_beh_werehouse.csv|07', 'à¹€à¸šà¹Šà¸ˆà¸­à¸‡ à¸„à¸¥à¸±à¸‡à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸¯'],
+  ['stock_beh_werehouse.csv|08', 'Mscc à¸ˆà¸­à¸‡ à¸„à¸¥à¸±à¸‡à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸¯'],
 ]);
 
 function parseCsv(text) {
@@ -417,6 +419,7 @@ function search(query, catalog, page = 1) {
 
 let cache = { fingerprint: '', loadedAt: 0, githubCheckedAt: 0, stockUpdatedAt: null, stockFiles: [], catalog: new Map(), inventory: [] };
 let refreshPromise = null;
+const previewStore = new Map();
 
 async function refreshIfNeeded(force = false) {
   const now = Date.now();
@@ -489,6 +492,75 @@ function renderIndex({ sku = '', result = null, error = '', source = CSV_SOURCE 
     .replaceAll('%%LIFF_ID%%', escapeHtml(liffId));
 }
 
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  if (value >= 1024) return `${Math.round(value / 1024)} KB`;
+  return `${value} B`;
+}
+
+function getPreviewSamples(file, limit = 5) {
+  const seen = new Set();
+  const samples = [];
+  for (const item of file.inventory || []) {
+    const sku = normalizeSku(item.sku);
+    if (!sku || seen.has(sku)) continue;
+    seen.add(sku);
+    samples.push({ sku, name: item.name || '-' });
+    if (samples.length >= limit) break;
+  }
+  return samples;
+}
+
+function buildUploadMetadata(files, uploadedAt) {
+  const updatedFiles = files.map((file) => ({
+    name: file.fileName,
+    size: file.size,
+    source_size: file.sourceSize,
+    encoding: `${file.encoding} -> UTF-8`,
+    rows: file.rows,
+    skus: file.skus,
+    updated_at: uploadedAt,
+  }));
+  return { uploaded_at: uploadedAt, files: updatedFiles };
+}
+
+function cleanupPreviewStore() {
+  const now = Date.now();
+  for (const [id, preview] of previewStore) {
+    if (!preview || preview.expiresAt <= now) previewStore.delete(id);
+  }
+  while (previewStore.size > ADMIN_PREVIEW_LIMIT) {
+    const oldestId = previewStore.keys().next().value;
+    if (!oldestId) break;
+    previewStore.delete(oldestId);
+  }
+}
+
+function createUploadPreview(files) {
+  cleanupPreviewStore();
+  const id = crypto.randomBytes(18).toString('base64url');
+  const createdAt = new Date().toISOString();
+  const preview = {
+    id,
+    createdAt,
+    expiresAt: Date.now() + ADMIN_PREVIEW_TTL_MS,
+    files,
+    summary: files.map((file) => ({
+      name: file.fileName,
+      sourceSize: file.sourceSize,
+      size: file.size,
+      encoding: `${file.encoding} -> UTF-8`,
+      rows: file.rows,
+      skus: file.skus,
+      samples: getPreviewSamples(file),
+    })),
+  };
+  previewStore.set(id, preview);
+  cleanupPreviewStore();
+  return preview;
+}
+
 function constantTimeEqual(a, b) {
   const left = Buffer.from(String(a));
   const right = Buffer.from(String(b));
@@ -513,9 +585,48 @@ function requireAdmin(req, res) {
   return false;
 }
 
-function renderAdminPage({ message = '', error = '' } = {}) {
+function renderAdminPage({ message = '', error = '', preview = null } = {}) {
   const requiredItems = ALLOWED_STOCK_FILES.map((file) => `<li><code>${escapeHtml(file)}</code></li>`).join('');
   const statusHtml = error ? `<div class="alert error">${escapeHtml(error)}</div>` : message ? `<div class="alert ok">${escapeHtml(message)}</div>` : '';
+  const previewHtml = preview ? `
+      <section class="panel preview-panel" aria-labelledby="preview-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">ตรวจแล้ว ยังไม่ commit</p>
+            <h2 id="preview-title">พรีวิวไฟล์ก่อนอัปเดตจริง</h2>
+          </div>
+          <span class="status-pill">รอยืนยัน</span>
+        </div>
+        <div class="preview-grid">
+          ${preview.summary.map((file) => `
+            <article class="preview-file">
+              <div class="file-head">
+                <code>${escapeHtml(file.name)}</code>
+                <span>${escapeHtml(file.encoding)}</span>
+              </div>
+              <dl class="metrics">
+                <div><dt>Rows</dt><dd>${file.rows.toLocaleString('en-US')}</dd></div>
+                <div><dt>SKUs</dt><dd>${file.skus.toLocaleString('en-US')}</dd></div>
+                <div><dt>Size</dt><dd>${escapeHtml(formatBytes(file.size))}</dd></div>
+              </dl>
+              <div class="sample-list">
+                <div class="sample-title">ตัวอย่างสินค้า</div>
+                ${file.samples.map((item) => `
+                  <div class="sample-row">
+                    <code>${escapeHtml(item.sku)}</code>
+                    <span>${escapeHtml(item.name)}</span>
+                  </div>
+                `).join('') || '<div class="sample-empty">ไม่มีตัวอย่างสินค้า</div>'}
+              </div>
+            </article>
+          `).join('')}
+        </div>
+        <form method="post" action="/admin/confirm" class="confirm-form">
+          <input type="hidden" name="previewId" value="${escapeHtml(preview.id)}" />
+          <a class="secondary-action" href="/admin">เลือกไฟล์ใหม่</a>
+          <button class="confirm-button" type="submit">ยืนยันและอัปเดตเข้า GitHub</button>
+        </form>
+      </section>` : '';
   return `<!doctype html>
 <html lang="th">
 <head>
@@ -524,49 +635,116 @@ function renderAdminPage({ message = '', error = '' } = {}) {
   <title>MSCC Stock Admin</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; background: #f6f7fb; }
-    main { width: min(760px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0; }
-    section { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; box-shadow: 0 12px 40px rgba(17, 24, 39, .08); }
-    h1 { margin: 0 0 6px; font-size: 28px; }
-    p { margin: 0 0 18px; color: #4b5563; line-height: 1.6; }
-    ul { margin: 10px 0 0; padding-left: 20px; color: #374151; line-height: 1.8; }
-    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; color: #0f766e; }
+    :root {
+      --bg: oklch(97.2% 0.008 226);
+      --panel: oklch(99% 0.004 226);
+      --panel-soft: oklch(96.5% 0.01 226);
+      --ink: oklch(24% 0.032 240);
+      --muted: oklch(47% 0.035 240);
+      --line: oklch(88% 0.013 232);
+      --accent: oklch(45% 0.098 178);
+      --accent-strong: oklch(38% 0.104 178);
+      --success-bg: oklch(95.5% 0.035 163);
+      --success-line: oklch(82% 0.07 163);
+      --error-bg: oklch(96% 0.033 28);
+      --error-line: oklch(84% 0.08 28);
+      --error-ink: oklch(41% 0.13 28);
+    }
+    body { margin: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+    main { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 44px; }
+    .admin-shell { display: grid; gap: 16px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 4px 2px 8px; }
+    .brand-mark { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: 0; }
+    .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px oklch(92% 0.045 178); }
+    .repo-label { color: var(--muted); font-size: 13px; text-align: right; overflow-wrap: anywhere; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 45px oklch(20% 0.03 240 / .08); }
+    .hero-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 24px; padding: 24px; }
+    h1, h2 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 26px; line-height: 1.18; }
+    h2 { font-size: 18px; line-height: 1.25; }
+    p { margin: 10px 0 0; color: var(--muted); line-height: 1.65; }
+    ul { margin: 10px 0 0; padding-left: 20px; color: var(--muted); line-height: 1.8; }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; color: oklch(36% 0.085 178); }
+    .eyebrow { margin: 0 0 8px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-strong); }
+    .summary-box { align-self: start; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-soft); padding: 14px 16px; }
+    .summary-box strong { display: block; font-size: 14px; }
     input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-    .dropzone { margin-top: 16px; border: 2px dashed #99f6e4; border-radius: 8px; padding: 28px 18px; background: #f0fdfa; text-align: center; cursor: pointer; }
-    .dropzone.dragging { border-color: #0f766e; background: #ccfbf1; }
-    .dropzone strong { display: block; color: #0f766e; font-size: 18px; }
-    .dropzone span { display: block; margin-top: 6px; color: #4b5563; }
+    .dropzone { display: block; margin-top: 18px; border: 1px dashed oklch(70% 0.06 178); border-radius: 8px; padding: 24px; background: oklch(97.5% 0.018 178); cursor: pointer; transition: border-color .16s ease-out, background .16s ease-out, transform .16s ease-out; }
+    .dropzone.dragging { border-color: var(--accent); background: oklch(94% 0.04 178); transform: translateY(-1px); }
+    .dropzone strong { display: block; color: var(--ink); font-size: 17px; }
+    .dropzone span { display: block; margin-top: 6px; color: var(--muted); }
     .file-list { margin-top: 14px; display: grid; gap: 8px; }
-    .file-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 8px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 14px; }
-    .file-row.good { border-color: #a7f3d0; background: #ecfdf5; }
-    .file-row.bad { border-color: #fecaca; background: #fef2f2; }
-    button { margin-top: 18px; width: 100%; border: 0; border-radius: 8px; padding: 14px 16px; background: #0f766e; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
-    button:disabled { background: #9ca3af; cursor: not-allowed; }
-    .alert { margin-bottom: 16px; border-radius: 8px; padding: 12px 14px; line-height: 1.5; white-space: pre-wrap; }
-    .ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-    .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-    .note { margin-top: 16px; font-size: 13px; color: #6b7280; }
+    .file-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 42px; padding: 10px 12px; border-radius: 8px; background: var(--panel-soft); border: 1px solid var(--line); font-size: 14px; }
+    .file-row.good { border-color: var(--success-line); background: var(--success-bg); }
+    .file-row.bad { border-color: var(--error-line); background: var(--error-bg); color: var(--error-ink); }
+    .primary-button, .confirm-button, .secondary-action { min-height: 44px; border-radius: 8px; padding: 0 16px; font-size: 15px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+    .primary-button, .confirm-button { border: 1px solid var(--accent-strong); background: var(--accent); color: oklch(99% 0.005 178); cursor: pointer; }
+    .primary-button { margin-top: 16px; width: 100%; }
+    .primary-button:disabled { border-color: oklch(75% 0.01 240); background: oklch(82% 0.012 240); color: oklch(45% 0.02 240); cursor: not-allowed; }
+    .secondary-action { border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+    .alert { margin: 16px 0 0; border-radius: 8px; padding: 12px 14px; line-height: 1.5; white-space: pre-wrap; }
+    .ok { background: var(--success-bg); color: oklch(35% 0.09 163); border: 1px solid var(--success-line); }
+    .error { background: var(--error-bg); color: var(--error-ink); border: 1px solid var(--error-line); }
+    .note { margin-top: 14px; font-size: 13px; color: var(--muted); }
+    .preview-panel { padding: 20px; }
+    .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .status-pill { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: oklch(94% 0.036 178); color: var(--accent-strong); font-size: 13px; font-weight: 800; white-space: nowrap; }
+    .preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .preview-file { border: 1px solid var(--line); border-radius: 8px; background: var(--panel-soft); padding: 14px; }
+    .file-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .file-head span { color: var(--muted); font-size: 12px; text-align: right; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+    .metrics div { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 8px; }
+    .metrics dt { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .metrics dd { margin: 2px 0 0; font-weight: 850; }
+    .sample-list { display: grid; gap: 6px; }
+    .sample-title { color: var(--muted); font-size: 12px; font-weight: 800; }
+    .sample-row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 13px; }
+    .sample-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+    .sample-empty { color: var(--muted); font-size: 13px; }
+    .confirm-form { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    @media (max-width: 760px) {
+      main { width: min(100% - 24px, 1080px); padding-top: 18px; }
+      .topbar, .section-heading, .confirm-form { align-items: stretch; flex-direction: column; }
+      .repo-label { text-align: left; }
+      .hero-panel, .preview-grid { grid-template-columns: 1fr; }
+      .sample-row { grid-template-columns: 1fr; gap: 2px; }
+      .sample-row span { white-space: normal; }
+      .confirm-button, .secondary-action { width: 100%; }
+    }
   </style>
 </head>
 <body>
   <main>
-    <section>
-      <h1>อัปเดตไฟล์ CSV</h1>
-      <p>ลากไฟล์ CSV ทั้ง 4 ไฟล์มาวาง ระบบจะตรวจชื่อไฟล์ อ่าน encoding แล้วแปลงเป็น UTF-8 ก่อนอัปเดตเข้า ${escapeHtml(DATA_REPO)}</p>
-      ${statusHtml}
-      <div class="note">ไฟล์ที่ต้องมีครบ:</div>
-      <ul>${requiredItems}</ul>
-      <form method="post" action="/admin/upload" enctype="multipart/form-data">
-        <label id="dropzone" class="dropzone" for="csvFiles">
-          <strong>ลากไฟล์มาวางที่นี่</strong>
-          <span>หรือกดเพื่อเลือกไฟล์ CSV ทั้ง 4 ไฟล์</span>
-        </label>
-        <input id="csvFiles" name="csvFiles" type="file" accept=".csv,.CSV,text/csv" multiple required />
-        <div id="file-list" class="file-list"></div>
-        <button id="submit-button" type="submit" disabled>อัปเดตสต็อก</button>
-      </form>
-      <div class="note">หลังอัปเดตสำเร็จ หน้า search จะแสดงเวลาอัปเดตล่าสุด และข้อมูลจะ rebuild จาก CSV ชุดใหม่</div>
-    </section>
+    <div class="admin-shell">
+      <div class="topbar">
+        <div class="brand-mark"><span class="brand-dot"></span><span>MSCC Stock Admin</span></div>
+        <div class="repo-label">${escapeHtml(DATA_REPO)}</div>
+      </div>
+      <section class="panel hero-panel">
+        <div>
+          <p class="eyebrow">CSV intake</p>
+          <h1>อัปเดตสต็อกแบบตรวจสอบก่อน commit</h1>
+          <p>ลากไฟล์ CSV ทั้ง 4 ไฟล์เข้ามา ระบบจะตรวจชื่อไฟล์ อ่าน encoding แปลงเป็น UTF-8 และแสดงตัวอย่างก่อนส่งเข้า GitHub</p>
+          ${statusHtml}
+          <form method="post" action="/admin/upload" enctype="multipart/form-data">
+            <label id="dropzone" class="dropzone" for="csvFiles">
+              <strong>วางไฟล์ CSV ที่นี่</strong>
+              <span>หรือกดเพื่อเลือกไฟล์ทั้ง 4 ไฟล์พร้อมกัน</span>
+            </label>
+            <input id="csvFiles" name="csvFiles" type="file" accept=".csv,.CSV,text/csv" multiple required />
+            <div id="file-list" class="file-list"></div>
+            <button id="submit-button" class="primary-button" type="submit" disabled>ตรวจไฟล์และดูพรีวิว</button>
+          </form>
+        </div>
+        <aside class="summary-box">
+          <strong>ไฟล์ที่ต้องมีครบ</strong>
+          <ul>${requiredItems}</ul>
+          <div class="note">ขั้นตอนนี้ยังไม่อัปเดตข้อมูลจริง จนกว่าจะกดยืนยันหลังตรวจพรีวิว</div>
+        </aside>
+      </section>
+      ${previewHtml}
+    </div>
   </main>
   <script>
     const requiredFiles = ${JSON.stringify(ALLOWED_STOCK_FILES)};
@@ -594,7 +772,6 @@ function renderAdminPage({ message = '', error = '' } = {}) {
 </body>
 </html>`;
 }
-
 function readBody(req, limitBytes = MAX_UPLOAD_BYTES) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -698,26 +875,20 @@ function validateStockUploads(uploadList) {
   });
 }
 
-async function updateStockCsvFiles(uploadList) {
-  const files = validateStockUploads(uploadList);
+async function commitValidatedStockFiles(files) {
   const uploadedAt = new Date().toISOString();
-  const updatedFiles = files.map((file) => ({
-    name: file.fileName,
-    size: file.size,
-    source_size: file.sourceSize,
-    encoding: `${file.encoding} -> UTF-8`,
-    rows: file.rows,
-    skus: file.skus,
-    updated_at: uploadedAt,
-  }));
-  const metadata = { uploaded_at: uploadedAt, files: updatedFiles };
+  const metadata = buildUploadMetadata(files, uploadedAt);
   await commitGitHubFiles([
     ...files.map((file) => ({ path: `data/${file.fileName}`, data: file.data })),
     { path: STOCK_METADATA_PATH, data: Buffer.from(`${JSON.stringify(metadata, null, 2)}\n`, 'utf8') },
   ], 'Update stock CSV files from stock admin');
   const inventory = files.flatMap((file) => file.inventory || []);
-  cache = { fingerprint: '', loadedAt: Date.now(), githubCheckedAt: Date.now(), stockUpdatedAt: uploadedAt, stockFiles: updatedFiles, catalog: buildCatalog(inventory), inventory };
+  cache = { fingerprint: '', loadedAt: Date.now(), githubCheckedAt: Date.now(), stockUpdatedAt: uploadedAt, stockFiles: metadata.files, catalog: buildCatalog(inventory), inventory };
   return metadata;
+}
+
+async function updateStockCsvFiles(uploadList) {
+  return commitValidatedStockFiles(validateStockUploads(uploadList));
 }
 
 async function handleAdmin(req, res, url) {
@@ -736,7 +907,26 @@ async function handleAdmin(req, res, url) {
       const parsed = parseMultipart(body, match[1] || match[2]);
       const uploads = parsed.files.csvFiles || [];
       if (!uploads.length) throw new Error('Please choose all 4 CSV files');
-      const metadata = await updateStockCsvFiles(uploads);
+      const preview = createUploadPreview(validateStockUploads(uploads));
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderAdminPage({ preview }));
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Upload failed';
+      res.writeHead(303, { Location: `/admin?error=${encodeURIComponent(message)}` });
+      res.end();
+    }
+    return true;
+  }
+  if (req.method === 'POST' && url.pathname === '/admin/confirm') {
+    try {
+      const body = await readBody(req, 1024 * 1024);
+      const params = new URLSearchParams(body.toString('utf8'));
+      const previewId = params.get('previewId') || '';
+      cleanupPreviewStore();
+      const preview = previewStore.get(previewId);
+      if (!preview) throw new Error('Preview expired. Please upload the 4 CSV files again.');
+      const metadata = await commitValidatedStockFiles(preview.files);
+      previewStore.delete(previewId);
       const updatedAt = new Date(metadata.uploaded_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
       const summary = metadata.files.map((file) => `${file.name}: ${file.rows} rows, ${file.skus} SKUs, ${file.encoding}`).join('\n');
       res.writeHead(303, { Location: `/admin?message=${encodeURIComponent(`Updated ${ALLOWED_STOCK_FILES.length} files at ${updatedAt}\n${summary}`)}` });
@@ -797,7 +987,7 @@ const server = http.createServer(async (req, res) => {
     const result = search(query, state.catalog, page);
     if (!result) {
       res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: 'not_found', message: 'ไม่พบสินค้า', query }));
+      res.end(JSON.stringify({ error: 'not_found', message: 'à¹„à¸¡à¹ˆà¸žà¸šà¸ªà¸´à¸™à¸„à¹‰à¸²', query }));
       return;
     }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -820,3 +1010,4 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Local stock checker running at http://localhost:${PORT}`);
 });
+
