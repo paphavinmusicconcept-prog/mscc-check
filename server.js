@@ -149,6 +149,17 @@ const DISPLAY_WAREHOUSES = new Map([
   ['stock_beh_werehouse.csv|08|มิวสิคจอง สินค้าคลังเพชรบุรีฯ', 'Mscc จอง คลังเพชรบุรีฯ'],
 ]);
 
+const DEFAULT_DISPLAY_LABELS = new Map([
+  ['stock_beh_hq.csv|BEH', 'คลังเบ๊'],
+  ['stock_mscc.csv|MSCC', 'คลังมิวสิคคอนเซพท์'],
+  ['stock_mscc_werehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
+  ['stock_beh_werehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
+  ['stock_mscc.csv|06', 'คลังฝาก MSCC'],
+  ['stock_mscc_werehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_werehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_werehouse.csv|08', 'Mscc จอง คลังเพชรบุรีฯ'],
+]);
+
 function getBranchFromFile(filePath) {
   const name = path.basename(filePath).toLowerCase();
   if (name.includes('beh')) return 'BEH';
@@ -186,8 +197,10 @@ function loadInventoryFromText(text, filePath = '') {
     }
     const sku = normalizeSku(row[3]);
     if (!/^[A-Z0-9][A-Z0-9\-_.]{2,}$/.test(sku)) continue;
-    const displayKey = `${path.basename(filePath).toLowerCase()}|${currentSection.branch}|${currentSection.warehouse}`;
-    const displayLabel = currentSection.displayLabel || DISPLAY_WAREHOUSES.get(displayKey) || '';
+    const fileName = path.basename(filePath).toLowerCase();
+    const displayKey = `${fileName}|${currentSection.branch}|${currentSection.warehouse}`;
+    const fallbackKey = `${fileName}|${currentSection.branch}`;
+    const displayLabel = currentSection.displayLabel || DISPLAY_WAREHOUSES.get(displayKey) || DEFAULT_DISPLAY_LABELS.get(fallbackKey) || '';
     if (!displayLabel) continue;
     items.push({
       sku,
