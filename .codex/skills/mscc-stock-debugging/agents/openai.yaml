@@ -1,0 +1,3 @@
+display_name: MSCC Stock Debugging
+short_description: Debug MSCC stock upload and search issues.
+default_prompt: Use the MSCC stock debugging workflow to inspect the issue, separate facts from assumptions, assess risk, and propose or implement the safest next step.
