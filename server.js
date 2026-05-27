@@ -53,7 +53,7 @@ const GITHUB_DATA_PATHS = (process.env.GITHUB_DATA_PATHS || ALLOWED_STOCK_FILES.
 
 const DEFAULT_DISPLAY_LABELS = new Map([
   ['stock_beh_hq.csv|BEH', 'คลังเบ๊'],
-  ['stock_mscc.csv|MSCC', 'คลังมิวสิคคอนเซพท์'],
+  ['stock_mscc.csv|MSCC', 'คลังมิวสิคคอนเซ็พท์'],
   ['stock_mscc_werehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
   ['stock_beh_werehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
   ['stock_mscc.csv|06', 'คลังฝาก MSCC'],
@@ -317,7 +317,7 @@ async function putGitHubFile(apiPath, contentBuffer, message) {
 
 async function commitGitHubFiles(files, message) {
   const headers = githubWriteHeaders();
-  const refUrl = `https://api.github.com/repos/${DATA_REPO}/git/ref/heads/${encodeURIComponent(DATA_BRANCH)}`;
+  const refUrl = `https://api.github.com/repos/${DATA_REPO}/git/refs/heads/${encodeURIComponent(DATA_BRANCH)}`;
   const refResponse = await fetch(refUrl, { headers });
   const refText = await refResponse.text();
   if (!refResponse.ok) throw new Error(`Cannot read GitHub branch: ${refResponse.status} ${refText.slice(0, 160)}`);
