@@ -54,6 +54,10 @@ const ALLOWED_STOCK_FILES = [
   'stock_beh_hq.CSV',
   'stock_beh_werehouse.CSV',
 ];
+const GITHUB_DATA_PATHS = (process.env.GITHUB_DATA_PATHS || ALLOWED_STOCK_FILES.map((file) => `data/${file}`).join(','))
+  .split(',')
+  .map((file) => file.trim())
+  .filter(Boolean);
 
 function parseCsv(text) {
   const rows = [];
@@ -207,6 +211,67 @@ async function fetchRemoteText(url) {
   const text = CSV_DECODER.decode(buffer);
   if (!response.ok) throw new Error(`Failed to fetch remote CSV: ${response.status} ${text.slice(0, 200)}`);
   return text;
+}
+
+function githubReadHeaders() {
+  return {
+    'Accept': 'application/vnd.github+json',
+    ...(GITHUB_TOKEN ? { 'Authorization': `Bearer ${GITHUB_TOKEN}` } : {}),
+    'User-Agent': 'mscc-check',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+}
+
+function encodeGitHubPath(filePath) {
+  return filePath.split('/').map(encodeURIComponent).join('/');
+}
+
+async function fetchGitHubContentText(filePath) {
+  const apiUrl = `https://api.github.com/repos/${DATA_REPO}/contents/${encodeGitHubPath(filePath)}?ref=${encodeURIComponent(DATA_BRANCH)}`;
+  const response = await fetch(apiUrl, {
+    headers: {
+      ...githubReadHeaders(),
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+    },
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`Failed to fetch GitHub file ${filePath}: ${response.status} ${text.slice(0, 200)}`);
+  const payload = JSON.parse(text);
+  const base64 = String(payload.content || '').replace(/\s/g, '');
+  return {
+    path: filePath,
+    sha: payload.sha || '',
+    size: payload.size || 0,
+    text: CSV_DECODER.decode(Buffer.from(base64, 'base64')),
+  };
+}
+
+async function fetchLatestFileCommit(filePath) {
+  const apiUrl = `https://api.github.com/repos/${DATA_REPO}/commits?sha=${encodeURIComponent(DATA_BRANCH)}&path=${encodeURIComponent(filePath)}&per_page=1`;
+  const response = await fetch(apiUrl, {
+    headers: {
+      ...githubReadHeaders(),
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+    },
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`Failed to fetch latest commit for ${filePath}: ${response.status} ${text.slice(0, 200)}`);
+  const commits = JSON.parse(text);
+  const commit = Array.isArray(commits) ? commits[0] : null;
+  const date = commit?.commit?.committer?.date || commit?.commit?.author?.date || null;
+  return {
+    name: path.basename(filePath),
+    path: filePath,
+    sha: commit?.sha || '',
+    updated_at: date,
+  };
+}
+
+async function fetchLatestStockFileCommits(filePaths) {
+  const commits = await Promise.all(filePaths.map((filePath) => fetchLatestFileCommit(filePath).catch(() => null)));
+  return commits.filter(Boolean);
 }
 
 async function fetchStockMetadata() {
@@ -564,23 +629,32 @@ async function refreshIfNeeded() {
   let stockUpdatedAt = null;
   let stockFiles = [];
   if (CSV_SOURCE === 'github') {
-    const urls = GITHUB_RAW_URLS.length ? GITHUB_RAW_URLS : [GITHUB_RAW_URL_WT].filter(Boolean);
-    const [files, metadata] = await Promise.all([
-      Promise.all(urls.map(async (url) => ({ url, text: await fetchRemoteText(url) }))),
+    const dataPaths = GITHUB_DATA_PATHS.length ? GITHUB_DATA_PATHS : ALLOWED_STOCK_FILES.map((file) => `data/${file}`);
+    const [files, metadata, latestCommits] = await Promise.all([
+      Promise.all(dataPaths.map((filePath) => fetchGitHubContentText(filePath))),
       fetchStockMetadata().catch(() => null),
+      fetchLatestStockFileCommits(dataPaths),
     ]);
     if (metadata && metadata.uploaded_at) {
       stockUpdatedAt = metadata.uploaded_at;
       stockFiles = Array.isArray(metadata.files) ? metadata.files : [];
     }
-    fingerprint = `remote:${crypto.createHash('sha1').update(files.map(({ url, text }) => `${url}:${text}`).join('\n')).digest('hex')}`;
+    const latestCsvUpdatedAt = latestCommits
+      .map((commit) => (commit.updated_at ? Date.parse(commit.updated_at) : 0))
+      .filter(Boolean)
+      .sort((a, b) => b - a)[0];
+    if (latestCsvUpdatedAt && (!stockUpdatedAt || latestCsvUpdatedAt > Date.parse(stockUpdatedAt))) {
+      stockUpdatedAt = new Date(latestCsvUpdatedAt).toISOString();
+      stockFiles = latestCommits;
+    }
+    fingerprint = `github:${crypto.createHash('sha1').update(files.map((file) => `${file.path}:${file.sha}:${file.size}`).join('\n')).digest('hex')}`;
     if (fingerprint === cache.fingerprint) {
       cache.loadedAt = now;
       cache.stockUpdatedAt = stockUpdatedAt || cache.stockUpdatedAt;
       cache.stockFiles = stockFiles.length ? stockFiles : cache.stockFiles;
       return cache;
     }
-    inventory = files.flatMap(({ url, text }) => loadInventoryFromText(text, url));
+    inventory = files.flatMap((file) => loadInventoryFromText(file.text, file.path));
   } else {
     const fileStats = DATA_FILES.filter((filePath) => fs.existsSync(filePath)).map((filePath) => ({ filePath, stat: fs.statSync(filePath) }));
     fingerprint = `local:${fileStats.map(({ filePath, stat }) => `${path.basename(filePath)}:${stat.mtimeMs}:${stat.size}`).join('|')}`;
