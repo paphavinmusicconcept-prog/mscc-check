@@ -12,9 +12,9 @@
 mscc-stock-data/
   data/
     stock_mscc.CSV
-    stock_mscc_werehouse.CSV
+    stock_mscc_warehouse.CSV
     stock_beh_hq.CSV
-    stock_beh_werehouse.CSV
+    stock_beh_warehouse.CSV
 ```
 
 `stock_wt.CSV` ไม่อยู่ในชุดอัปโหลดของหน้า admin แล้ว
@@ -38,8 +38,8 @@ GITHUB_TOKEN=
 DATA_REPO=paphavinmusicconcept-prog/mscc-stock-data
 DATA_BRANCH=main
 CSV_SOURCE=github
-GITHUB_RAW_URLS=https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc_werehouse.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_hq.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_werehouse.CSV
-GITHUB_DATA_PATHS=data/stock_mscc.CSV,data/stock_mscc_werehouse.CSV,data/stock_beh_hq.CSV,data/stock_beh_werehouse.CSV
+GITHUB_RAW_URLS=https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_mscc_warehouse.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_hq.CSV,https://raw.githubusercontent.com/paphavinmusicconcept-prog/mscc-stock-data/main/data/stock_beh_warehouse.CSV
+GITHUB_DATA_PATHS=data/stock_mscc.CSV,data/stock_mscc_warehouse.CSV,data/stock_beh_hq.CSV,data/stock_beh_warehouse.CSV
 ```
 
 `GITHUB_TOKEN` ต้องเป็น GitHub fine-grained personal access token ที่มีสิทธิ์ `Contents: Read and write` เฉพาะ repo `mscc-stock-data`

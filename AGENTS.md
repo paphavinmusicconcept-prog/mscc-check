@@ -43,9 +43,9 @@ The required upload files are exactly:
 
 ```text
 stock_mscc.CSV
-stock_mscc_werehouse.CSV
+stock_mscc_warehouse.CSV
 stock_beh_hq.CSV
-stock_beh_werehouse.CSV
+stock_beh_warehouse.CSV
 ```
 
 `stock_wt.CSV` is not part of the current admin upload flow.
@@ -76,7 +76,7 @@ GITHUB_TOKEN=
 DATA_REPO=paphavinmusicconcept-prog/mscc-stock-data
 DATA_BRANCH=main
 CSV_SOURCE=github
-GITHUB_DATA_PATHS=data/stock_mscc.CSV,data/stock_mscc_werehouse.CSV,data/stock_beh_hq.CSV,data/stock_beh_werehouse.CSV
+GITHUB_DATA_PATHS=data/stock_mscc.CSV,data/stock_mscc_warehouse.CSV,data/stock_beh_hq.CSV,data/stock_beh_warehouse.CSV
 GITHUB_REFRESH_TTL_MS=60000
 ```
 

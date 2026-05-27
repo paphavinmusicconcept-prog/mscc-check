@@ -37,20 +37,49 @@ const GITHUB_REFRESH_TTL_MS = Number(process.env.GITHUB_REFRESH_TTL_MS || 60 * 1
 const ADMIN_PREVIEW_TTL_MS = Number(process.env.ADMIN_PREVIEW_TTL_MS || 10 * 60 * 1000);
 const ADMIN_PREVIEW_LIMIT = Number(process.env.ADMIN_PREVIEW_LIMIT || 3);
 const STOCK_METADATA_PATH = 'data/stock-upload-meta.json';
-const ALLOWED_STOCK_FILES = [
-  'stock_mscc.CSV',
-  'stock_mscc_werehouse.CSV',
-  'stock_beh_hq.CSV',
-  'stock_beh_werehouse.CSV',
+const STOCK_FILE_DEFINITIONS = [
+  { name: 'stock_mscc.CSV', aliases: [] },
+  { name: 'stock_mscc_warehouse.CSV', aliases: ['stock_mscc_werehouse.CSV'] },
+  { name: 'stock_beh_hq.CSV', aliases: [] },
+  { name: 'stock_beh_warehouse.CSV', aliases: ['stock_beh_werehouse.CSV'] },
 ];
+const ALLOWED_STOCK_FILES = STOCK_FILE_DEFINITIONS.map((file) => file.name);
+const STOCK_FILE_ALIAS_MAP = new Map(STOCK_FILE_DEFINITIONS.flatMap((file) => [
+  [file.name.toLowerCase(), file.name],
+  ...file.aliases.map((alias) => [alias.toLowerCase(), file.name]),
+]));
+
+function canonicalStockFileName(fileName) {
+  return STOCK_FILE_ALIAS_MAP.get(path.basename(fileName).toLowerCase()) || path.basename(fileName);
+}
+
+function canonicalStockDataPath(filePath) {
+  const dirName = path.posix.dirname(String(filePath || '').replace(/\\/g, '/'));
+  const baseName = path.posix.basename(String(filePath || ''));
+  const canonicalName = canonicalStockFileName(baseName);
+  return dirName && dirName !== '.' ? `${dirName}/${canonicalName}` : canonicalName;
+}
+
+function fallbackStockDataPaths(filePath) {
+  const normalized = String(filePath || '').replace(/\\/g, '/');
+  const dirName = path.posix.dirname(normalized);
+  const baseName = path.posix.basename(normalized);
+  const canonicalName = canonicalStockFileName(baseName);
+  const definition = STOCK_FILE_DEFINITIONS.find((file) => file.name === canonicalName);
+  if (!definition) return [];
+  return definition.aliases.map((alias) => (dirName && dirName !== '.' ? `${dirName}/${alias}` : alias));
+}
+
 const DATA_FILES = (process.env.DATA_FILES || ALLOWED_STOCK_FILES.join(','))
   .split(',')
   .map((file) => file.trim())
   .filter(Boolean)
+  .map(canonicalStockFileName)
   .map((file) => path.join(DATA_DIR, file));
 const GITHUB_DATA_PATHS = (process.env.GITHUB_DATA_PATHS || ALLOWED_STOCK_FILES.map((file) => `data/${file}`).join(','))
   .split(',')
   .map((file) => file.trim())
+  .map(canonicalStockDataPath)
   .filter(Boolean);
 
 const DEFAULT_DISPLAY_LABELS = new Map([
@@ -150,7 +179,17 @@ function getSectionMeta(code, title, filePath) {
 
 function getDisplayLabel(filePath, section) {
   const fileName = path.basename(filePath).toLowerCase();
-  return DEFAULT_DISPLAY_LABELS.get(`${fileName}|${section.branch}`) || '';
+  const direct = DEFAULT_DISPLAY_LABELS.get(`${fileName}|${section.branch}`);
+  if (direct) return direct;
+  const canonicalName = canonicalStockFileName(fileName).toLowerCase();
+  const canonical = DEFAULT_DISPLAY_LABELS.get(`${canonicalName}|${section.branch}`);
+  if (canonical) return canonical;
+  const definition = STOCK_FILE_DEFINITIONS.find((file) => file.name.toLowerCase() === canonicalName);
+  for (const alias of definition?.aliases || []) {
+    const aliasLabel = DEFAULT_DISPLAY_LABELS.get(`${alias.toLowerCase()}|${section.branch}`);
+    if (aliasLabel) return aliasLabel;
+  }
+  return '';
 }
 
 function loadInventoryFromText(text, filePath = '') {
@@ -274,6 +313,20 @@ async function fetchGitHubContent(filePath) {
   };
 }
 
+async function fetchGitHubStockContent(filePath) {
+  const candidates = [canonicalStockDataPath(filePath), ...fallbackStockDataPaths(filePath)];
+  let lastError = null;
+  for (const candidate of candidates) {
+    try {
+      const file = await fetchGitHubContent(candidate);
+      return candidate === candidates[0] ? file : { ...file, path: candidates[0], legacy_path: candidate };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error(`Failed to fetch ${filePath}`);
+}
+
 async function fetchLatestFileCommit(filePath) {
   const apiUrl = `https://api.github.com/repos/${DATA_REPO}/commits?sha=${encodeURIComponent(DATA_BRANCH)}&path=${encodeURIComponent(filePath)}&per_page=1`;
   const response = await fetch(apiUrl, { headers: { ...githubReadHeaders(), 'Cache-Control': 'no-cache' } });
@@ -287,6 +340,15 @@ async function fetchLatestFileCommit(filePath) {
     sha: commit.sha || '',
     updated_at: commit.commit?.committer?.date || commit.commit?.author?.date || null,
   } : null;
+}
+
+async function fetchLatestStockFileCommit(filePath) {
+  const canonicalPath = canonicalStockDataPath(filePath);
+  for (const candidate of [canonicalPath, ...fallbackStockDataPaths(canonicalPath)]) {
+    const commit = await fetchLatestFileCommit(candidate);
+    if (commit) return candidate === canonicalPath ? commit : { ...commit, name: path.basename(canonicalPath), path: canonicalPath, legacy_path: candidate };
+  }
+  return null;
 }
 
 async function fetchStockMetadata() {
@@ -437,9 +499,9 @@ async function refreshIfNeeded(force = false) {
   if (CSV_SOURCE === 'github') {
     const dataPaths = GITHUB_DATA_PATHS.length ? GITHUB_DATA_PATHS : ALLOWED_STOCK_FILES.map((file) => `data/${file}`);
     const [githubFiles, metadata, commits] = await Promise.all([
-      Promise.all(dataPaths.map((filePath) => fetchGitHubContent(filePath))),
+      Promise.all(dataPaths.map((filePath) => fetchGitHubStockContent(filePath))),
       fetchStockMetadata().catch(() => null),
-      Promise.all(dataPaths.map((filePath) => fetchLatestFileCommit(filePath))),
+      Promise.all(dataPaths.map((filePath) => fetchLatestStockFileCommit(filePath))),
     ]);
     files = githubFiles;
     if (metadata?.uploaded_at) {
