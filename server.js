@@ -93,6 +93,22 @@ const DEFAULT_DISPLAY_LABELS = new Map([
   ['stock_beh_werehouse.csv|08', 'Mscc à¸ˆà¸­à¸‡ à¸„à¸¥à¸±à¸‡à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸¯'],
 ]);
 
+[
+  ['stock_beh_hq.csv|BEH', 'คลังเบ๊'],
+  ['stock_mscc.csv|MSCC', 'คลังมิวสิคคอนเซพท์'],
+  ['stock_mscc_warehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
+  ['stock_beh_warehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
+  ['stock_mscc_werehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
+  ['stock_beh_werehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
+  ['stock_mscc.csv|06', 'คลังฝาก MSCC'],
+  ['stock_mscc_warehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_warehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
+  ['stock_mscc_werehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_werehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_warehouse.csv|08', 'Mscc จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_werehouse.csv|08', 'Mscc จอง คลังเพชรบุรีฯ'],
+].forEach(([key, label]) => DEFAULT_DISPLAY_LABELS.set(key, label));
+
 function parseCsv(text) {
   const rows = [];
   let field = '';
@@ -1096,7 +1112,7 @@ const server = http.createServer(async (req, res) => {
     const result = search(query, state.catalog, page);
     if (!result) {
       res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: 'not_found', message: 'à¹„à¸¡à¹ˆà¸žà¸šà¸ªà¸´à¸™à¸„à¹‰à¸²', query }));
+      res.end(JSON.stringify({ error: 'not_found', message: 'ไม่พบสินค้า', query }));
       return;
     }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
