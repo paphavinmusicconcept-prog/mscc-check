@@ -586,45 +586,59 @@ function requireAdmin(req, res) {
 }
 
 function renderAdminPage({ message = '', error = '', preview = null } = {}) {
-  const requiredItems = ALLOWED_STOCK_FILES.map((file) => `<li><code>${escapeHtml(file)}</code></li>`).join('');
-  const statusHtml = error ? `<div class="alert error">${escapeHtml(error)}</div>` : message ? `<div class="alert ok">${escapeHtml(message)}</div>` : '';
+  const requiredItems = ALLOWED_STOCK_FILES.map((file, index) => `
+    <li>
+      <span>${index + 1}</span>
+      <code>${escapeHtml(file)}</code>
+    </li>
+  `).join('');
+  const statusHtml = error ? `<div class="notice error">${escapeHtml(error)}</div>` : message ? `<div class="notice success">${escapeHtml(message)}</div>` : '';
   const previewHtml = preview ? `
-      <section class="panel preview-panel" aria-labelledby="preview-title">
-        <div class="section-heading">
+      <section class="surface preview-surface" aria-labelledby="preview-title">
+        <div class="section-head">
           <div>
-            <p class="eyebrow">ตรวจแล้ว ยังไม่ commit</p>
-            <h2 id="preview-title">พรีวิวไฟล์ก่อนอัปเดตจริง</h2>
+            <p class="kicker">ตรวจแล้ว ยังไม่ commit</p>
+            <h2 id="preview-title">พรีวิวก่อนอัปเดตจริง</h2>
           </div>
-          <span class="status-pill">รอยืนยัน</span>
+          <span class="state-badge pending">รอยืนยัน</span>
         </div>
-        <div class="preview-grid">
-          ${preview.summary.map((file) => `
-            <article class="preview-file">
-              <div class="file-head">
-                <code>${escapeHtml(file.name)}</code>
-                <span>${escapeHtml(file.encoding)}</span>
-              </div>
-              <dl class="metrics">
-                <div><dt>Rows</dt><dd>${file.rows.toLocaleString('en-US')}</dd></div>
-                <div><dt>SKUs</dt><dd>${file.skus.toLocaleString('en-US')}</dd></div>
-                <div><dt>Size</dt><dd>${escapeHtml(formatBytes(file.size))}</dd></div>
-              </dl>
-              <div class="sample-list">
-                <div class="sample-title">ตัวอย่างสินค้า</div>
-                ${file.samples.map((item) => `
-                  <div class="sample-row">
-                    <code>${escapeHtml(item.sku)}</code>
-                    <span>${escapeHtml(item.name)}</span>
-                  </div>
-                `).join('') || '<div class="sample-empty">ไม่มีตัวอย่างสินค้า</div>'}
-              </div>
-            </article>
-          `).join('')}
+        <div class="preview-table-wrap">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>ไฟล์</th>
+                <th>Encoding</th>
+                <th>Rows</th>
+                <th>SKUs</th>
+                <th>ตัวอย่างสินค้า</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${preview.summary.map((file) => `
+                <tr>
+                  <td>
+                    <code>${escapeHtml(file.name)}</code>
+                    <span>${escapeHtml(formatBytes(file.size))}</span>
+                  </td>
+                  <td>${escapeHtml(file.encoding)}</td>
+                  <td>${file.rows.toLocaleString('en-US')}</td>
+                  <td>${file.skus.toLocaleString('en-US')}</td>
+                  <td>
+                    <div class="sample-stack">
+                      ${file.samples.slice(0, 3).map((item) => `
+                        <span><code>${escapeHtml(item.sku)}</code>${escapeHtml(item.name)}</span>
+                      `).join('') || '<span>ไม่มีตัวอย่างสินค้า</span>'}
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
         </div>
-        <form method="post" action="/admin/confirm" class="confirm-form">
+        <form method="post" action="/admin/confirm" class="action-row">
           <input type="hidden" name="previewId" value="${escapeHtml(preview.id)}" />
-          <a class="secondary-action" href="/admin">เลือกไฟล์ใหม่</a>
-          <button class="confirm-button" type="submit">ยืนยันและอัปเดตเข้า GitHub</button>
+          <a class="button secondary" href="/admin">เลือกไฟล์ใหม่</a>
+          <button class="button primary" type="submit">ยืนยันและอัปเดตเข้า GitHub</button>
         </form>
       </section>` : '';
   return `<!doctype html>
@@ -636,113 +650,141 @@ function renderAdminPage({ message = '', error = '', preview = null } = {}) {
   <style>
     * { box-sizing: border-box; }
     :root {
-      --bg: oklch(97.2% 0.008 226);
-      --panel: oklch(99% 0.004 226);
-      --panel-soft: oklch(96.5% 0.01 226);
-      --ink: oklch(24% 0.032 240);
-      --muted: oklch(47% 0.035 240);
-      --line: oklch(88% 0.013 232);
-      --accent: oklch(45% 0.098 178);
-      --accent-strong: oklch(38% 0.104 178);
-      --success-bg: oklch(95.5% 0.035 163);
-      --success-line: oklch(82% 0.07 163);
-      --error-bg: oklch(96% 0.033 28);
-      --error-line: oklch(84% 0.08 28);
-      --error-ink: oklch(41% 0.13 28);
+      --bg: oklch(96.5% 0.008 235);
+      --surface: oklch(99% 0.004 235);
+      --surface-2: oklch(97.5% 0.006 235);
+      --ink: oklch(22% 0.026 245);
+      --muted: oklch(47% 0.028 245);
+      --faint: oklch(62% 0.02 245);
+      --line: oklch(87.5% 0.012 235);
+      --line-strong: oklch(78% 0.018 235);
+      --accent: oklch(43% 0.09 174);
+      --accent-hover: oklch(38% 0.096 174);
+      --accent-soft: oklch(94.5% 0.035 174);
+      --success-bg: oklch(95% 0.04 154);
+      --success-line: oklch(80% 0.075 154);
+      --success-ink: oklch(35% 0.09 154);
+      --error-bg: oklch(96% 0.034 28);
+      --error-line: oklch(82% 0.078 28);
+      --error-ink: oklch(39% 0.13 28);
     }
     body { margin: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: var(--ink); background: var(--bg); }
-    main { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 44px; }
-    .admin-shell { display: grid; gap: 16px; }
-    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 4px 2px 8px; }
-    .brand-mark { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: 0; }
-    .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px oklch(92% 0.045 178); }
-    .repo-label { color: var(--muted); font-size: 13px; text-align: right; overflow-wrap: anywhere; }
-    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 45px oklch(20% 0.03 240 / .08); }
-    .hero-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 24px; padding: 24px; }
-    h1, h2 { margin: 0; letter-spacing: 0; }
-    h1 { font-size: 26px; line-height: 1.18; }
+    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 44px; }
+    .admin-shell { display: grid; gap: 14px; }
+    .app-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 2px 2px 8px; }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-mark { width: 28px; height: 28px; border: 1px solid var(--line-strong); border-radius: 7px; display: grid; place-items: center; background: var(--surface); color: var(--accent); font-size: 15px; font-weight: 900; }
+    .brand strong { display: block; font-size: 15px; }
+    .brand span { display: block; color: var(--faint); font-size: 12px; margin-top: 1px; }
+    .repo-label { color: var(--muted); font-size: 12px; text-align: right; overflow-wrap: anywhere; }
+    .surface { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 14px 32px oklch(18% 0.025 245 / .06); }
+    .content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+    .upload-surface { padding: 22px; }
+    h1, h2, h3 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 24px; line-height: 1.2; }
     h2 { font-size: 18px; line-height: 1.25; }
-    p { margin: 10px 0 0; color: var(--muted); line-height: 1.65; }
-    ul { margin: 10px 0 0; padding-left: 20px; color: var(--muted); line-height: 1.8; }
-    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; color: oklch(36% 0.085 178); }
-    .eyebrow { margin: 0 0 8px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-strong); }
-    .summary-box { align-self: start; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-soft); padding: 14px 16px; }
-    .summary-box strong { display: block; font-size: 14px; }
+    h3 { font-size: 15px; line-height: 1.3; }
+    p { margin: 8px 0 0; color: var(--muted); line-height: 1.6; max-width: 72ch; }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; color: oklch(35% 0.078 174); }
+    .kicker { margin: 0 0 7px; color: var(--accent); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+    .workflow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 18px 0; }
+    .workflow div { min-height: 54px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: var(--surface-2); }
+    .workflow span { display: block; color: var(--accent); font-size: 11px; font-weight: 850; }
+    .workflow strong { display: block; margin-top: 2px; font-size: 13px; }
+    .side-panel { padding: 16px; position: sticky; top: 16px; }
+    .side-panel p { font-size: 13px; }
+    .required-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+    .required-list li { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 36px; }
+    .required-list span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 800; }
     input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-    .dropzone { display: block; margin-top: 18px; border: 1px dashed oklch(70% 0.06 178); border-radius: 8px; padding: 24px; background: oklch(97.5% 0.018 178); cursor: pointer; transition: border-color .16s ease-out, background .16s ease-out, transform .16s ease-out; }
-    .dropzone.dragging { border-color: var(--accent); background: oklch(94% 0.04 178); transform: translateY(-1px); }
-    .dropzone strong { display: block; color: var(--ink); font-size: 17px; }
-    .dropzone span { display: block; margin-top: 6px; color: var(--muted); }
-    .file-list { margin-top: 14px; display: grid; gap: 8px; }
-    .file-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 42px; padding: 10px 12px; border-radius: 8px; background: var(--panel-soft); border: 1px solid var(--line); font-size: 14px; }
+    .dropzone { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; align-items: center; margin-top: 16px; border: 1px dashed var(--line-strong); border-radius: 8px; padding: 18px; background: var(--surface-2); cursor: pointer; transition: border-color .18s ease-out, background .18s ease-out; }
+    .dropzone::before { content: "CSV"; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 900; }
+    .dropzone.dragging { border-color: var(--accent); background: var(--accent-soft); }
+    .dropzone strong { display: block; color: var(--ink); font-size: 16px; }
+    .dropzone span { display: block; margin-top: 3px; color: var(--muted); font-size: 13px; }
+    .file-list { margin-top: 12px; display: grid; gap: 6px; }
+    .file-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 38px; padding: 8px 10px; border-radius: 7px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; }
     .file-row.good { border-color: var(--success-line); background: var(--success-bg); }
     .file-row.bad { border-color: var(--error-line); background: var(--error-bg); color: var(--error-ink); }
-    .primary-button, .confirm-button, .secondary-action { min-height: 44px; border-radius: 8px; padding: 0 16px; font-size: 15px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
-    .primary-button, .confirm-button { border: 1px solid var(--accent-strong); background: var(--accent); color: oklch(99% 0.005 178); cursor: pointer; }
-    .primary-button { margin-top: 16px; width: 100%; }
-    .primary-button:disabled { border-color: oklch(75% 0.01 240); background: oklch(82% 0.012 240); color: oklch(45% 0.02 240); cursor: not-allowed; }
-    .secondary-action { border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
-    .alert { margin: 16px 0 0; border-radius: 8px; padding: 12px 14px; line-height: 1.5; white-space: pre-wrap; }
-    .ok { background: var(--success-bg); color: oklch(35% 0.09 163); border: 1px solid var(--success-line); }
-    .error { background: var(--error-bg); color: var(--error-ink); border: 1px solid var(--error-line); }
-    .note { margin-top: 14px; font-size: 13px; color: var(--muted); }
-    .preview-panel { padding: 20px; }
-    .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-    .status-pill { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: oklch(94% 0.036 178); color: var(--accent-strong); font-size: 13px; font-weight: 800; white-space: nowrap; }
-    .preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .preview-file { border: 1px solid var(--line); border-radius: 8px; background: var(--panel-soft); padding: 14px; }
-    .file-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-    .file-head span { color: var(--muted); font-size: 12px; text-align: right; }
-    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
-    .metrics div { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 8px; }
-    .metrics dt { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
-    .metrics dd { margin: 2px 0 0; font-weight: 850; }
-    .sample-list { display: grid; gap: 6px; }
-    .sample-title { color: var(--muted); font-size: 12px; font-weight: 800; }
-    .sample-row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 13px; }
-    .sample-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
-    .sample-empty { color: var(--muted); font-size: 13px; }
-    .confirm-form { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .button { min-height: 42px; border-radius: 7px; padding: 0 15px; font-size: 14px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; }
+    .button.primary { border-color: var(--accent-hover); background: var(--accent); color: oklch(99% 0.004 174); cursor: pointer; }
+    .button.primary:hover { background: var(--accent-hover); }
+    .button.primary:disabled { border-color: oklch(75% 0.01 245); background: oklch(83% 0.01 245); color: oklch(45% 0.02 245); cursor: not-allowed; }
+    .button.secondary { border-color: var(--line-strong); background: var(--surface); color: var(--ink); }
+    .form-footer { display: flex; justify-content: flex-end; margin-top: 14px; }
+    .notice { margin: 14px 0 0; border-radius: 7px; padding: 11px 12px; line-height: 1.5; white-space: pre-wrap; font-size: 14px; }
+    .notice.success { background: var(--success-bg); color: var(--success-ink); border: 1px solid var(--success-line); }
+    .notice.error { background: var(--error-bg); color: var(--error-ink); border: 1px solid var(--error-line); }
+    .preview-surface { padding: 18px; }
+    .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+    .state-badge { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 850; white-space: nowrap; }
+    .state-badge.pending { background: var(--accent-soft); color: var(--accent); }
+    .preview-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+    .preview-table { width: 100%; border-collapse: collapse; min-width: 860px; background: var(--surface); }
+    .preview-table th, .preview-table td { padding: 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; }
+    .preview-table th { background: var(--surface-2); color: var(--muted); font-size: 12px; font-weight: 850; }
+    .preview-table tr:last-child td { border-bottom: 0; }
+    .preview-table td:nth-child(3), .preview-table td:nth-child(4) { font-weight: 850; }
+    .preview-table td > span { display: block; margin-top: 3px; color: var(--faint); font-size: 12px; }
+    .sample-stack { display: grid; gap: 5px; }
+    .sample-stack span { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; min-width: 0; }
+    .sample-stack code { color: var(--muted); }
+    .action-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
     @media (max-width: 760px) {
-      main { width: min(100% - 24px, 1080px); padding-top: 18px; }
-      .topbar, .section-heading, .confirm-form { align-items: stretch; flex-direction: column; }
+      main { width: min(100% - 24px, 1120px); padding-top: 18px; }
+      .app-header, .section-head, .action-row { align-items: stretch; flex-direction: column; }
       .repo-label { text-align: left; }
-      .hero-panel, .preview-grid { grid-template-columns: 1fr; }
-      .sample-row { grid-template-columns: 1fr; gap: 2px; }
-      .sample-row span { white-space: normal; }
-      .confirm-button, .secondary-action { width: 100%; }
+      .content-grid, .workflow { grid-template-columns: 1fr; }
+      .side-panel { position: static; }
+      .dropzone { grid-template-columns: 1fr; }
+      .button { width: 100%; }
     }
   </style>
 </head>
 <body>
   <main>
     <div class="admin-shell">
-      <div class="topbar">
-        <div class="brand-mark"><span class="brand-dot"></span><span>MSCC Stock Admin</span></div>
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark">M</div>
+          <div>
+            <strong>MSCC Stock Admin</strong>
+            <span>CSV upload control</span>
+          </div>
+        </div>
         <div class="repo-label">${escapeHtml(DATA_REPO)}</div>
-      </div>
-      <section class="panel hero-panel">
-        <div>
-          <p class="eyebrow">CSV intake</p>
+      </header>
+      <div class="content-grid">
+        <section class="surface upload-surface">
+          <p class="kicker">Stock CSV intake</p>
           <h1>อัปเดตสต็อกแบบตรวจสอบก่อน commit</h1>
-          <p>ลากไฟล์ CSV ทั้ง 4 ไฟล์เข้ามา ระบบจะตรวจชื่อไฟล์ อ่าน encoding แปลงเป็น UTF-8 และแสดงตัวอย่างก่อนส่งเข้า GitHub</p>
+          <p>ลากไฟล์ CSV ทั้ง 4 ไฟล์เข้ามา ระบบจะตรวจชื่อไฟล์ อ่าน encoding แปลงเป็น UTF-8 และเปิดพรีวิวให้เช็คก่อนส่งเข้า GitHub</p>
+          <div class="workflow" aria-label="Upload workflow">
+            <div><span>01</span><strong>เลือกไฟล์ให้ครบ</strong></div>
+            <div><span>02</span><strong>ตรวจ rows และ SKUs</strong></div>
+            <div><span>03</span><strong>ยืนยันอัปเดต</strong></div>
+          </div>
           ${statusHtml}
           <form method="post" action="/admin/upload" enctype="multipart/form-data">
             <label id="dropzone" class="dropzone" for="csvFiles">
-              <strong>วางไฟล์ CSV ที่นี่</strong>
-              <span>หรือกดเพื่อเลือกไฟล์ทั้ง 4 ไฟล์พร้อมกัน</span>
+              <span>
+                <strong>วางไฟล์ CSV ที่นี่</strong>
+                <span>หรือกดเพื่อเลือกไฟล์ทั้ง 4 ไฟล์พร้อมกัน</span>
+              </span>
             </label>
             <input id="csvFiles" name="csvFiles" type="file" accept=".csv,.CSV,text/csv" multiple required />
             <div id="file-list" class="file-list"></div>
-            <button id="submit-button" class="primary-button" type="submit" disabled>ตรวจไฟล์และดูพรีวิว</button>
+            <div class="form-footer">
+              <button id="submit-button" class="button primary" type="submit" disabled>ตรวจไฟล์และดูพรีวิว</button>
+            </div>
           </form>
-        </div>
-        <aside class="summary-box">
-          <strong>ไฟล์ที่ต้องมีครบ</strong>
-          <ul>${requiredItems}</ul>
-          <div class="note">ขั้นตอนนี้ยังไม่อัปเดตข้อมูลจริง จนกว่าจะกดยืนยันหลังตรวจพรีวิว</div>
+        </section>
+        <aside class="surface side-panel">
+          <h3>ไฟล์ที่ต้องมีครบ</h3>
+          <p>ชื่อไฟล์ต้องตรงตามนี้เท่านั้น ไฟล์อื่นจะไม่ถูกอัปเดต</p>
+          <ul class="required-list">${requiredItems}</ul>
         </aside>
-      </section>
+      </div>
       ${previewHtml}
     </div>
   </main>
@@ -754,6 +796,11 @@ function renderAdminPage({ message = '', error = '', preview = null } = {}) {
     const submitButton = document.getElementById('submit-button');
     function renderFiles(files) {
       const names = Array.from(files || []).map((file) => file.name);
+      if (!names.length) {
+        fileList.innerHTML = '';
+        submitButton.disabled = true;
+        return;
+      }
       const missing = requiredFiles.filter((name) => !names.includes(name));
       const unexpected = names.filter((name) => !requiredFiles.includes(name));
       const duplicate = names.filter((name, index) => names.indexOf(name) !== index);
