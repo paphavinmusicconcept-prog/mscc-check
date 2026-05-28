@@ -216,9 +216,20 @@
       overflow-wrap:anywhere;
       word-break:break-word;
     }
-    .pager { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:10px 0 12px; }
-    .pager button { min-width:38px; min-height:36px; padding:0 10px; }
-    .pager .active { background:var(--navy); color:var(--paper); border-color:var(--navy); }
+    .load-more-row {
+      display:grid;
+      justify-items:center;
+      gap:6px;
+      margin-top:12px;
+      padding-top:4px;
+    }
+    .load-more-button {
+      min-width:140px;
+      background:var(--surface);
+      color:var(--navy);
+      border-color:var(--line);
+    }
+    .load-more-button:hover { background:var(--surface-2); border-color:var(--line-strong); }
     .meta { color:var(--faint); font-size:12px; margin-top:10px; line-height:1.5; }
     .count-label { margin-bottom:10px; color:var(--muted); font-size:13px; line-height:1.5; }
     .warehouse-list { display:grid; gap:7px; margin-top:8px; }
@@ -239,7 +250,12 @@
       .wrap { width:calc(100% - 24px); max-width:1040px; padding-top:14px; }
       .topbar { align-items:flex-start; flex-direction:column; gap:10px; padding-bottom:14px; }
       .meta-stack { justify-content:flex-start; }
-      .layout { grid-template-columns:1fr; }
+      .layout { display:flex; flex-direction:column; }
+      main { display:contents; }
+      .search-panel { order:1; }
+      .summary-panel { order:2; }
+      .results-panel { order:3; }
+      .search-panel, .summary-panel, .results-panel { width:100%; }
       .summary-panel { position:static; }
       .summary-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); }
       .results-panel { margin-top:12px; }
@@ -330,6 +346,9 @@
     const updatedBadge = document.getElementById('updated-badge');
     let currentQuery = queryInput.value || '';
     let currentPage = 1;
+    let currentTotalPages = 1;
+    let isLoadingMore = false;
+    let loadMoreObserver = null;
 
     const loadingText = initialSource === 'github' ? 'กำลังโหลดจาก GitHub...' : 'กำลังโหลดข้อมูล...';
 
@@ -370,35 +389,45 @@
       errorSlot.innerHTML = message ? `<div class="error">${escapeHtml(message)}</div>` : '';
     }
 
-    function renderPager(data) {
-      const totalPages = Number(data.total_pages || 1);
+    function renderMatchCard(item) {
+      return `
+        <div class="result-card">
+          <div class="result-sku">${escapeHtml(item.sku || '-')}</div>
+          <div class="result-name">${escapeHtml(item.name || '-')}</div>
+          <div class="stock-chips">${renderStockChips(item.branches || [])}</div>
+        </div>
+      `;
+    }
+
+    function updateResultCount(total) {
+      const label = document.getElementById('result-count-label');
+      const list = document.getElementById('result-list');
+      if (!label || !list) return;
+      const shown = list.querySelectorAll('.result-card').length;
+      label.textContent = `แสดง ${shown} จากทั้งหมด ${total} รายการ`;
+    }
+
+    function renderLoadMore(data) {
       const page = Number(data.page || 1);
-      if (totalPages <= 1) return '';
+      const totalPages = Number(data.total_pages || 1);
+      const total = Number(data.total_matches || data.matches?.length || 0);
+      if (page >= totalPages) return `<div class="meta">แสดงครบ ${total} รายการ</div>`;
+      return `
+        <div class="load-more-row">
+          <button class="load-more-button" type="button" data-load-more>โหลดเพิ่ม</button>
+          <div class="meta">เลื่อนลงเพื่อโหลดรายการถัดไป</div>
+        </div>
+      `;
+    }
 
-      const buttons = [];
-      const prevDisabled = page <= 1 ? 'disabled' : '';
-      const nextDisabled = page >= totalPages ? 'disabled' : '';
-
-      buttons.push(`<button class="ghost" type="button" data-page="${page - 1}" ${prevDisabled}>ก่อนหน้า</button>`);
-
-      const start = Math.max(1, page - 2);
-      const end = Math.min(totalPages, page + 2);
-      if (start > 1) {
-        buttons.push(`<button class="ghost" type="button" data-page="1">1</button>`);
-        if (start > 2) buttons.push(`<span class="meta">...</span>`);
-      }
-
-      for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
-        buttons.push(`<button type="button" data-page="${pageNumber}" class="${pageNumber === page ? 'active' : 'ghost'}">${pageNumber}</button>`);
-      }
-
-      if (end < totalPages) {
-        if (end < totalPages - 1) buttons.push(`<span class="meta">...</span>`);
-        buttons.push(`<button class="ghost" type="button" data-page="${totalPages}">${totalPages}</button>`);
-      }
-
-      buttons.push(`<button class="ghost" type="button" data-page="${page + 1}" ${nextDisabled}>ถัดไป</button>`);
-      return `<div class="pager">${buttons.join('')}</div>`;
+    function observeLoadMore() {
+      if (loadMoreObserver) loadMoreObserver.disconnect();
+      const button = resultSlot.querySelector('[data-load-more]');
+      if (!button || !('IntersectionObserver' in window)) return;
+      loadMoreObserver = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMoreResults();
+      }, { rootMargin: '240px 0px' });
+      loadMoreObserver.observe(button);
     }
 
     function renderWarehouseList(items) {
@@ -453,6 +482,8 @@
         const shown = Number(data.shown_matches || data.matches.length);
         const page = Number(data.page || 1);
         const totalPages = Number(data.total_pages || 1);
+        currentPage = page;
+        currentTotalPages = totalPages;
         skuValue.className = 'value';
         nameValue.className = 'value';
         skuValue.textContent = data.query || '-';
@@ -460,20 +491,12 @@
         availableStock.textContent = `${total} รายการ`;
         resultSlot.innerHTML = `
           <div class="status ok">พบหลายสินค้า</div>
-          <div class="count-label">
-            แสดงหน้า ${page} จากทั้งหมด ${totalPages} หน้า, ${shown} จากทั้งหมด ${total} รายการ
+          <div id="result-count-label" class="count-label">แสดง ${shown} จากทั้งหมด ${total} รายการ</div>
+          <div id="result-list" class="result-list">
+            ${data.matches.map(renderMatchCard).join('')}
           </div>
-          ${renderPager(data)}
-          <div class="result-list">
-            ${data.matches.map((item) => `
-              <div class="result-card">
-                <div class="result-sku">${escapeHtml(item.sku || '-')}</div>
-                <div class="result-name">${escapeHtml(item.name || '-')}</div>
-                <div class="stock-chips">${renderStockChips(item.branches || [])}</div>
-              </div>
-            `).join('')}
-          </div>`;
-        resultSlot.insertAdjacentHTML('beforeend', renderPager(data));
+          ${renderLoadMore(data)}`;
+        observeLoadMore();
         return;
       }
 
@@ -517,12 +540,46 @@
       history.replaceState({}, '', `/?sku=${encodeURIComponent(value)}&page=${currentPage}`);
     }
 
+    async function loadMoreResults() {
+      if (isLoadingMore || !currentQuery || currentPage >= currentTotalPages) return;
+      isLoadingMore = true;
+      const button = resultSlot.querySelector('[data-load-more]');
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'กำลังโหลด...';
+      }
+      try {
+        const nextPage = currentPage + 1;
+        const response = await fetch(`/search?sku=${encodeURIComponent(currentQuery)}&page=${encodeURIComponent(nextPage)}`);
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.message || 'โหลดเพิ่มไม่สำเร็จ');
+        const list = document.getElementById('result-list');
+        if (!list || !Array.isArray(payload.matches)) return;
+        list.insertAdjacentHTML('beforeend', payload.matches.map(renderMatchCard).join(''));
+        currentPage = Number(payload.page || nextPage);
+        currentTotalPages = Number(payload.total_pages || currentTotalPages);
+        updateResultCount(Number(payload.total_matches || list.querySelectorAll('.result-card').length));
+        const loadMoreRow = resultSlot.querySelector('.load-more-row');
+        if (loadMoreRow) loadMoreRow.outerHTML = renderLoadMore(payload);
+        observeLoadMore();
+        history.replaceState({}, '', `/?sku=${encodeURIComponent(currentQuery)}&page=${currentPage}`);
+      } catch (error) {
+        if (button) {
+          button.disabled = false;
+          button.textContent = 'ลองโหลดอีกครั้ง';
+        }
+        errorSlot.innerHTML = `<div class="error">${escapeHtml(error.message || 'โหลดเพิ่มไม่สำเร็จ')}</div>`;
+      } finally {
+        isLoadingMore = false;
+      }
+    }
+
     resultSlot.addEventListener('click', (event) => {
-      const button = event.target.closest('button[data-page]');
-      if (!button) return;
-      const nextPage = Number(button.dataset.page || 1);
-      if (!Number.isFinite(nextPage) || nextPage < 1) return;
-      runSearch(currentQuery, nextPage).catch((error) => renderEmpty(error.message || 'เกิดข้อผิดพลาด'));
+      const loadMoreButton = event.target.closest('[data-load-more]');
+      if (loadMoreButton) {
+        loadMoreResults();
+        return;
+      }
     });
 
     form.addEventListener('submit', (event) => {
