@@ -5,81 +5,297 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MSCC Check</title>
   <style>
-    :root { --bg:#0b1020; --panel:rgba(16,23,42,.86); --text:#eef2ff; --muted:#a5b4fc; --accent:#7dd3fc; --line:rgba(255,255,255,.12); }
+    :root {
+      color-scheme: light;
+      --red:#e63946;
+      --paper:#f1faee;
+      --mint:#a8dadc;
+      --blue:#457b9d;
+      --navy:#1d3557;
+      --surface:#fbfffa;
+      --surface-2:#eaf6f3;
+      --text:#172f4d;
+      --muted:#587089;
+      --faint:#7f92a3;
+      --line:rgba(29,53,87,.14);
+      --line-strong:rgba(29,53,87,.24);
+      --shadow:0 18px 45px rgba(29,53,87,.08);
+      --radius:8px;
+    }
     * { box-sizing:border-box; }
-    body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--text); background:radial-gradient(circle at top left, rgba(125,211,252,.18), transparent 25%), linear-gradient(180deg,#090d1a, #0b1020); }
-    .wrap { width:min(960px, calc(100% - 32px)); margin:0 auto; padding:24px 0 40px; }
-    .hero, .card { border:1px solid var(--line); border-radius:20px; background:var(--panel); box-shadow:0 24px 80px rgba(0,0,0,.3); }
-    .hero { padding:24px; }
-    h1 { margin:0 0 8px; font-size:clamp(28px, 5vw, 48px); }
-    .sub { margin:0; color:rgba(238,242,255,.72); line-height:1.6; }
-    .grid { display:grid; grid-template-columns:1.1fr .9fr; gap:16px; margin-top:16px; }
-    .inner { padding:18px; }
-    .search { display:flex; gap:10px; flex-wrap:wrap; }
-    input { flex:1 1 280px; min-width:0; padding:14px 16px; border:1px solid rgba(255,255,255,.16); border-radius:14px; background:rgba(255,255,255,.06); color:var(--text); font-size:16px; }
-    button, .link { border:0; border-radius:14px; padding:14px 16px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
-    .primary { background:linear-gradient(135deg, var(--accent), #c4b5fd); color:#08111f; }
-    .secondary { background:rgba(255,255,255,.08); color:var(--text); border:1px solid rgba(255,255,255,.14); }
-    .stat { padding:16px; border-radius:16px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); margin-bottom:12px; }
-    .label { color:rgba(238,242,255,.62); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
-    .value { margin-top:8px; font-size:18px; font-weight:700; line-height:1.4; }
-    .value.large { font-size:28px; }
-    .sku-card { font-size:13px; font-weight:700; letter-spacing:.02em; color:rgba(238,242,255,.78); }
-    .name-card { font-size:22px; font-weight:900; line-height:1.2; color:var(--text); }
-    .result-card { padding:16px; border-radius:14px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); }
-    .result-sku { font-size:15px; font-weight:600; color:rgba(238,242,255,.9); line-height:1.2; }
-    .result-name { margin-top:8px; font-size:24px; font-weight:900; line-height:1.12; color:rgba(238,242,255,.78); text-transform:uppercase; }
-    .stock-chips { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
-    .stock-chip { display:inline-flex; align-items:center; min-height:40px; padding:9px 16px; border-radius:18px; background:rgba(255,255,255,.16); color:rgba(238,242,255,.9); font-size:18px; font-weight:700; line-height:1; }
-    .status { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; font-size:13px; font-weight:700; margin-bottom:12px; }
-    .ok { background:rgba(52,211,153,.12); color:#34d399; }
-    .empty { background:rgba(248,113,113,.12); color:#f87171; }
-    .branch { margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,.1); }
-    .branch h3 { margin:0 0 8px; font-size:18px; }
-    ul { margin:0; padding-left:18px; color:rgba(238,242,255,.82); }
-    .meta { color:rgba(238,242,255,.55); font-size:12px; margin-top:10px; }
-    .warehouse-list { display:grid; gap:8px; margin-top:8px; }
-    .warehouse-row { display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); }
-    .warehouse-row strong { font-weight:800; }
-    .warehouse-row span { color:rgba(238,242,255,.78); }
-    .error { margin-top:12px; padding:12px 14px; border-radius:14px; background:rgba(248,113,113,.12); color:#fecaca; border:1px solid rgba(248,113,113,.22); }
-    .pager { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0 14px; }
-    .pager button { min-width:44px; padding:10px 12px; }
-    .pager .active { background: linear-gradient(135deg, var(--accent), #c4b5fd); color:#08111f; }
-    .pager .ghost { background:rgba(255,255,255,.06); color:var(--text); border:1px solid rgba(255,255,255,.14); }
+    html { background:var(--paper); }
+    body {
+      margin:0;
+      min-height:100vh;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+      color:var(--text);
+      background:linear-gradient(180deg, #f7fff5 0%, var(--paper) 44%, #e8f5f3 100%);
+    }
+    button, input { font:inherit; }
+    .wrap { width:calc(100% - 32px); max-width:1040px; margin:0 auto; padding:22px 0 36px; }
+    .topbar {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:10px 0 18px;
+    }
+    .brand { display:flex; align-items:center; gap:12px; min-width:0; }
+    .brand-mark {
+      display:grid;
+      place-items:center;
+      width:133px;
+      height:44px;
+      overflow:visible;
+    }
+    .brand-mark img {
+      display:block;
+      width:100%;
+      height:100%;
+      object-fit:contain;
+    }
+    .brand-text { min-width:0; }
+    .brand-text strong { display:block; font-size:17px; line-height:1.15; color:var(--navy); }
+    .brand-text span { display:block; margin-top:2px; color:var(--muted); font-size:13px; }
+    .meta-stack { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
+    .badge {
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:6px 10px;
+      border-radius:8px;
+      border:1px solid var(--line);
+      background:rgba(251,255,250,.78);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:750;
+      white-space:nowrap;
+    }
+    .layout { display:grid; grid-template-columns:minmax(0, 1fr) 292px; gap:14px; align-items:start; }
+    main, aside { min-width:0; }
+    .search-panel, .summary-panel, .results-panel {
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      background:rgba(251,255,250,.92);
+      box-shadow:var(--shadow);
+    }
+    .search-panel { padding:18px; }
+    .summary-panel { padding:12px; position:sticky; top:16px; }
+    .results-panel { margin-top:14px; padding:16px; }
+    .page-title { margin:0 0 14px; color:var(--navy); font-size:24px; line-height:1.2; letter-spacing:0; }
+    .search { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; gap:8px; align-items:center; }
+    input {
+      width:100%;
+      min-width:0;
+      height:44px;
+      padding:0 13px;
+      border:1px solid var(--line-strong);
+      border-radius:8px;
+      background:var(--surface);
+      color:var(--navy);
+      font-size:16px;
+      line-height:1;
+      outline:none;
+      box-shadow:0 1px 0 rgba(29,53,87,.04);
+    }
+    input::placeholder { color:#8497a8; }
+    input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(69,123,157,.18); }
+    button, .link {
+      min-height:44px;
+      border-radius:8px;
+      padding:0 14px;
+      border:1px solid transparent;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      color:inherit;
+      text-decoration:none;
+      font-weight:800;
+      cursor:pointer;
+      transition:background .18s ease-out, border-color .18s ease-out, transform .18s ease-out;
+      white-space:nowrap;
+    }
+    button:hover, .link:hover { transform:translateY(-1px); }
+    button:focus-visible, .link:focus-visible { outline:3px solid rgba(69,123,157,.22); outline-offset:2px; }
+    button:disabled { opacity:.48; cursor:not-allowed; transform:none; }
+    .primary { background:var(--blue); color:var(--paper); border-color:var(--blue); }
+    .primary:hover { background:var(--navy); border-color:var(--navy); }
+    .secondary, .ghost {
+      background:var(--surface);
+      color:var(--navy);
+      border-color:var(--line);
+    }
+    .secondary:hover, .ghost:hover { background:var(--surface-2); border-color:var(--line-strong); }
+    .summary-grid { display:grid; gap:8px; }
+    .stat {
+      min-height:82px;
+      padding:12px;
+      border:1px solid var(--line);
+      border-radius:8px;
+      background:var(--surface);
+    }
+    .label {
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+      line-height:1.2;
+      text-transform:uppercase;
+      letter-spacing:0;
+    }
+    .value { margin-top:7px; color:var(--navy); font-size:17px; font-weight:750; line-height:1.35; overflow-wrap:anywhere; }
+    .value.large { font-size:30px; line-height:1.05; letter-spacing:0; }
+    .sku-card { font-size:14px; letter-spacing:0; }
+    .name-card { font-size:18px; font-weight:850; line-height:1.25; }
+    .section-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .section-title { color:var(--navy); font-size:15px; font-weight:850; }
+    .status {
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:6px 10px;
+      border-radius:8px;
+      border:1px solid var(--line);
+      background:var(--surface-2);
+      color:var(--blue);
+      font-size:13px;
+      font-weight:800;
+    }
+    .status.ok { border-color:rgba(69,123,157,.25); background:rgba(168,218,220,.42); color:var(--navy); }
+    .status.empty { border-color:rgba(230,57,70,.2); background:rgba(230,57,70,.08); color:var(--red); }
+    .error {
+      margin-top:10px;
+      padding:11px 12px;
+      border-radius:8px;
+      border:1px solid rgba(230,57,70,.28);
+      background:rgba(230,57,70,.08);
+      color:#a9212d;
+      line-height:1.5;
+      overflow-wrap:anywhere;
+    }
+    .result-list { display:grid; gap:8px; }
+    .result-card {
+      min-width:0;
+      padding:13px;
+      border:1px solid var(--line);
+      border-radius:8px;
+      background:var(--surface);
+    }
+    .result-sku { color:var(--blue); font-size:13px; font-weight:850; line-height:1.2; letter-spacing:0; }
+    .result-name {
+      margin-top:6px;
+      color:var(--navy);
+      font-size:20px;
+      font-weight:900;
+      line-height:1.2;
+      letter-spacing:0;
+      text-transform:uppercase;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+    .stock-chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
+    .stock-chip {
+      display:inline-flex;
+      align-items:center;
+      min-height:32px;
+      max-width:100%;
+      padding:6px 10px;
+      border-radius:8px;
+      background:var(--surface-2);
+      border:1px solid rgba(69,123,157,.16);
+      color:var(--navy);
+      font-size:14px;
+      font-weight:800;
+      line-height:1.2;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+    .pager { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:10px 0 12px; }
+    .pager button { min-width:38px; min-height:36px; padding:0 10px; }
+    .pager .active { background:var(--navy); color:var(--paper); border-color:var(--navy); }
+    .meta { color:var(--faint); font-size:12px; margin-top:10px; line-height:1.5; }
+    .count-label { margin-bottom:10px; color:var(--muted); font-size:13px; line-height:1.5; }
+    .warehouse-list { display:grid; gap:7px; margin-top:8px; }
+    .warehouse-row {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      min-height:40px;
+      padding:9px 10px;
+      border:1px solid var(--line);
+      border-radius:8px;
+      background:var(--surface);
+    }
+    .warehouse-row strong { color:var(--navy); font-size:14px; font-weight:850; line-height:1.25; overflow-wrap:anywhere; }
+    .warehouse-row span { flex:0 0 auto; color:var(--blue); font-weight:850; font-size:14px; }
     @media (max-width:840px) {
-      .grid { grid-template-columns:1fr; }
-      .result-card { padding:14px; }
-      .result-name { font-size:20px; }
-      .stock-chip { min-height:36px; border-radius:16px; padding:8px 14px; font-size:16px; }
+      .wrap { width:calc(100% - 24px); max-width:1040px; padding-top:14px; }
+      .topbar { align-items:flex-start; flex-direction:column; gap:10px; padding-bottom:14px; }
+      .meta-stack { justify-content:flex-start; }
+      .layout { grid-template-columns:1fr; }
+      .summary-panel { position:static; }
+      .summary-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+      .results-panel { margin-top:12px; }
+    }
+    @media (max-width:620px) {
+      .search { grid-template-columns:1fr; }
+      button, .link { width:100%; }
+      .summary-grid { grid-template-columns:1fr; }
+      .page-title { font-size:21px; }
+      .result-name { font-size:18px; }
+      .warehouse-row { align-items:flex-start; flex-direction:column; gap:5px; }
+      .warehouse-row span { flex:auto; }
     }
   </style>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
   <div class="wrap">
-    <section class="hero">
-      <div style="color:var(--accent); font-size:12px; letter-spacing:.08em; text-transform:uppercase;">MSCC Check</div>
-      <h1>เช็คสต็อกสินค้า</h1>
-      <p class="sub">ทดสอบค้นหา SKU เต็ม, SKU บางส่วน หรือชื่อสินค้า</p>
-      <div id="source-badge" class="status" style="margin-top:14px;">แหล่งข้อมูล: %%INITIAL_SOURCE_LABEL%%</div>
-      <div id="updated-badge" class="meta">Update: %%INITIAL_UPDATED_AT%%</div>
-    </section>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">
+          <img src="/assets/bigtone-logo-transparent.png" alt="Bigtone" />
+        </div>
+        <div class="brand-text">
+          <strong>MSCC Check</strong>
+          <span>ค้นหาสต็อกจาก SKU หรือชื่อสินค้า</span>
+        </div>
+      </div>
+      <div class="meta-stack">
+        <div id="source-badge" class="badge">แหล่งข้อมูล: %%INITIAL_SOURCE_LABEL%%</div>
+        <div id="updated-badge" class="badge">อัปเดต: %%INITIAL_UPDATED_AT%%</div>
+      </div>
+    </header>
 
-    <div class="grid">
-      <section class="card">
-        <div class="inner">
+    <div class="layout">
+      <main>
+        <section class="search-panel" aria-labelledby="search-title">
+          <h1 id="search-title" class="page-title">เช็คสต็อกสินค้า</h1>
           <form class="search" id="search-form">
-            <input id="query" name="query" placeholder="พิมพ์ SKU เช่น F011-4980-" value="%%INITIAL_SKU%%" autocomplete="off" spellcheck="false" />
+            <input id="query" name="query" placeholder="พิมพ์ SKU หรือชื่อสินค้า" value="%%INITIAL_SKU%%" autocomplete="off" spellcheck="false" />
             <button class="primary" type="submit">ค้นหา</button>
             <a class="link secondary" href="/">ล้าง</a>
           </form>
           <div id="error-slot"></div>
-        </div>
-      </section>
+        </section>
 
-      <aside class="card">
-        <div class="inner">
+        <section class="results-panel" aria-labelledby="result-title">
+          <div class="section-head">
+            <div id="result-title" class="section-title">รายละเอียดคลัง</div>
+          </div>
+          <div id="result-slot"></div>
+        </section>
+      </main>
+
+      <aside class="summary-panel" aria-label="สรุปผลค้นหา">
+        <div class="summary-grid">
           <div class="stat">
             <div class="label">Available Stock</div>
             <div class="value large" id="available-stock">-</div>
@@ -95,13 +311,6 @@
         </div>
       </aside>
     </div>
-
-    <section class="card" style="margin-top:16px;">
-      <div class="inner">
-        <div class="label">รายละเอียดคลัง</div>
-        <div id="result-slot" style="margin-top:10px;"></div>
-      </div>
-    </section>
   </div>
 
   <script>
@@ -122,7 +331,6 @@
     let currentQuery = queryInput.value || '';
     let currentPage = 1;
 
-    const sourceLabel = initialSource === 'github' ? 'GitHub' : 'Local';
     const loadingText = initialSource === 'github' ? 'กำลังโหลดจาก GitHub...' : 'กำลังโหลดข้อมูล...';
 
     async function initLiff() {
@@ -140,7 +348,7 @@
     }
 
     function setUpdatedBadge(value) {
-      updatedBadge.textContent = `Update: ${value || '-'}`;
+      updatedBadge.textContent = `อัปเดต: ${value || '-'}`;
     }
 
     function escapeHtml(value) {
@@ -177,15 +385,15 @@
       const end = Math.min(totalPages, page + 2);
       if (start > 1) {
         buttons.push(`<button class="ghost" type="button" data-page="1">1</button>`);
-        if (start > 2) buttons.push(`<span style="opacity:.7;">...</span>`);
+        if (start > 2) buttons.push(`<span class="meta">...</span>`);
       }
 
-      for (let p = start; p <= end; p += 1) {
-        buttons.push(`<button type="button" data-page="${p}" class="${p === page ? 'active' : 'ghost'}">${p}</button>`);
+      for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
+        buttons.push(`<button type="button" data-page="${pageNumber}" class="${pageNumber === page ? 'active' : 'ghost'}">${pageNumber}</button>`);
       }
 
       if (end < totalPages) {
-        if (end < totalPages - 1) buttons.push(`<span style="opacity:.7;">...</span>`);
+        if (end < totalPages - 1) buttons.push(`<span class="meta">...</span>`);
         buttons.push(`<button class="ghost" type="button" data-page="${totalPages}">${totalPages}</button>`);
       }
 
@@ -252,11 +460,11 @@
         availableStock.textContent = `${total} รายการ`;
         resultSlot.innerHTML = `
           <div class="status ok">พบหลายสินค้า</div>
-          <div class="label" style="margin-bottom:10px; text-transform:none; letter-spacing:0;">
+          <div class="count-label">
             แสดงหน้า ${page} จากทั้งหมด ${totalPages} หน้า, ${shown} จากทั้งหมด ${total} รายการ
           </div>
           ${renderPager(data)}
-          <div style="display:grid; gap:10px;">
+          <div class="result-list">
             ${data.matches.map((item) => `
               <div class="result-card">
                 <div class="result-sku">${escapeHtml(item.sku || '-')}</div>
@@ -332,7 +540,6 @@
     }
 
     initLiff();
-
   </script>
 </body>
 </html>

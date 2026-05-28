@@ -37,6 +37,12 @@ const GITHUB_REFRESH_TTL_MS = Number(process.env.GITHUB_REFRESH_TTL_MS || 60 * 1
 const ADMIN_PREVIEW_TTL_MS = Number(process.env.ADMIN_PREVIEW_TTL_MS || 10 * 60 * 1000);
 const ADMIN_PREVIEW_LIMIT = Number(process.env.ADMIN_PREVIEW_LIMIT || 3);
 const STOCK_METADATA_PATH = 'data/stock-upload-meta.json';
+const PUBLIC_ASSETS = new Map([
+  ['/assets/bigtone-logo-transparent.png', {
+    path: path.join(__dirname, 'assets', 'bigtone-logo-transparent.png'),
+    type: 'image/png',
+  }],
+]);
 const STOCK_FILE_DEFINITIONS = [
   { name: 'stock_mscc.CSV', aliases: [] },
   { name: 'stock_mscc_warehouse.CSV', aliases: ['stock_mscc_werehouse.CSV'] },
@@ -438,7 +444,9 @@ async function commitGitHubFiles(files, message) {
   });
   const newCommitText = await newCommitResponse.text();
   if (!newCommitResponse.ok) throw new Error(`Cannot create GitHub commit: ${newCommitResponse.status} ${newCommitText.slice(0, 160)}`);
-  const newCommitSha = JSON.parse(newCommitText).sha;
+  const newCommit = JSON.parse(newCommitText);
+  const newCommitSha = newCommit.sha;
+  const committedAt = newCommit.committer?.date || newCommit.author?.date || new Date().toISOString();
 
   const updateRefResponse = await fetch(refUrl, {
     method: 'PATCH',
@@ -447,7 +455,7 @@ async function commitGitHubFiles(files, message) {
   });
   const updateRefText = await updateRefResponse.text();
   if (!updateRefResponse.ok) throw new Error(`Cannot update GitHub branch: ${updateRefResponse.status} ${updateRefText.slice(0, 160)}`);
-  return newCommitSha;
+  return { sha: newCommitSha, committedAt };
 }
 
 function buildCatalog(items) {
@@ -1003,13 +1011,15 @@ function validateStockUploads(uploadList) {
 async function commitValidatedStockFiles(files) {
   const uploadedAt = new Date().toISOString();
   const metadata = buildUploadMetadata(files, uploadedAt);
-  await commitGitHubFiles([
+  const commit = await commitGitHubFiles([
     ...files.map((file) => ({ path: `data/${file.fileName}`, data: file.data })),
     { path: STOCK_METADATA_PATH, data: Buffer.from(`${JSON.stringify(metadata, null, 2)}\n`, 'utf8') },
   ], 'Update stock CSV files from stock admin');
+  const committedAt = commit.committedAt || uploadedAt;
+  const displayMetadata = { ...metadata, uploaded_at: committedAt };
   const inventory = files.flatMap((file) => file.inventory || []);
-  cache = { fingerprint: '', loadedAt: Date.now(), githubCheckedAt: Date.now(), stockUpdatedAt: uploadedAt, stockFiles: metadata.files, catalog: buildCatalog(inventory), inventory };
-  return metadata;
+  cache = { fingerprint: '', loadedAt: Date.now(), githubCheckedAt: Date.now(), stockUpdatedAt: committedAt, stockFiles: displayMetadata.files, catalog: buildCatalog(inventory), inventory };
+  return displayMetadata;
 }
 
 async function updateStockCsvFiles(uploadList) {
@@ -1070,6 +1080,17 @@ async function handleAdmin(req, res, url) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const asset = PUBLIC_ASSETS.get(url.pathname);
+  if (asset) {
+    if (!fs.existsSync(asset.path)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Not found');
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': asset.type, 'Cache-Control': 'public, max-age=86400' });
+    fs.createReadStream(asset.path).pipe(res);
+    return;
+  }
   if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) {
     await handleAdmin(req, res, url);
     return;
