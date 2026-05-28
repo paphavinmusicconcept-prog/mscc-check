@@ -57,6 +57,16 @@
     .brand-text { min-width:0; }
     .brand-text strong { display:block; font-size:17px; line-height:1.15; color:var(--navy); }
     .brand-text span { display:block; margin-top:2px; color:var(--muted); font-size:13px; }
+    .brand-credit {
+      display:block;
+      margin-top:6px;
+      color:rgba(69,123,157,.58);
+      font-size:11px;
+      font-weight:650;
+      line-height:1.1;
+      text-transform:lowercase;
+      white-space:nowrap;
+    }
     .meta-stack { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
     .badge {
       display:inline-flex;
@@ -249,6 +259,7 @@
     @media (max-width:840px) {
       .wrap { width:calc(100% - 24px); max-width:1040px; padding-top:14px; }
       .topbar { align-items:flex-start; flex-direction:column; gap:10px; padding-bottom:14px; }
+      .brand-credit { margin-top:5px; font-size:10px; }
       .meta-stack { justify-content:flex-start; }
       .layout { display:flex; flex-direction:column; }
       main { display:contents; }
@@ -300,6 +311,7 @@
         <div class="brand-text">
           <strong>MSCC Check</strong>
           <span>ค้นหาสต็อกจาก SKU หรือชื่อสินค้า</span>
+          <small class="brand-credit">powered by aaron marsha</small>
         </div>
       </div>
       <div class="meta-stack">
