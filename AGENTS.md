@@ -111,6 +111,19 @@ Important behavior:
 
 When debugging slow `/` or `/search`, check whether the app is doing unnecessary GitHub calls.
 
+## Search UI Rules
+
+The search UI is in `index.html`.
+
+Current design notes:
+
+- Use the Bigtone logo from `assets/bigtone-logo-transparent.png`.
+- Keep the search result information the same even when changing layout.
+- Multiple results should scroll vertically and lazy load more rows. Do not bring back large numbered pagination unless the user asks.
+- On mobile, show summary before warehouse details.
+- Mobile summary layout is 2+1: first row has `Available Stock` and `SKU`, second row has product name.
+- The displayed update time should prefer the successful admin upload commit time. If that metadata is missing, fallback to the latest CSV commit time.
+
 ## Deployment
 
 The live service is expected to deploy from `mscc-check/main` on Render.

@@ -89,31 +89,20 @@ const GITHUB_DATA_PATHS = (process.env.GITHUB_DATA_PATHS || ALLOWED_STOCK_FILES.
   .filter(Boolean);
 
 const DEFAULT_DISPLAY_LABELS = new Map([
-  ['stock_beh_hq.csv|BEH', 'à¸„à¸¥à¸±à¸‡à¹€à¸šà¹Š'],
-  ['stock_mscc.csv|MSCC', 'à¸„à¸¥à¸±à¸‡à¸¡à¸´à¸§à¸ªà¸´à¸„à¸„à¸­à¸™à¹€à¸‹à¸žà¸—à¹Œ'],
-  ['stock_mscc_werehouse.csv|04', 'à¸„à¸¥à¸±à¸‡à¸ªà¸³à¸™à¸±à¸à¸‡à¸²à¸™à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸•à¸±à¸”à¹ƒà¸«à¸¡à¹ˆ'],
-  ['stock_beh_werehouse.csv|04', 'à¸„à¸¥à¸±à¸‡à¸ªà¸³à¸™à¸±à¸à¸‡à¸²à¸™à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸•à¸±à¸”à¹ƒà¸«à¸¡à¹ˆ'],
-  ['stock_mscc.csv|06', 'à¸„à¸¥à¸±à¸‡à¸à¸²à¸ MSCC'],
-  ['stock_mscc_werehouse.csv|07', 'à¹€à¸šà¹Šà¸ˆà¸­à¸‡ à¸„à¸¥à¸±à¸‡à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸¯'],
-  ['stock_beh_werehouse.csv|07', 'à¹€à¸šà¹Šà¸ˆà¸­à¸‡ à¸„à¸¥à¸±à¸‡à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸¯'],
-  ['stock_beh_werehouse.csv|08', 'Mscc à¸ˆà¸­à¸‡ à¸„à¸¥à¸±à¸‡à¹€à¸žà¸Šà¸£à¸šà¸¸à¸£à¸µà¸¯'],
-]);
-
-[
   ['stock_beh_hq.csv|BEH', 'คลังเบ๊'],
   ['stock_mscc.csv|MSCC', 'คลังมิวสิคคอนเซพท์'],
+  ['stock_mscc.csv|06', 'คลังฝาก MSCC'],
   ['stock_mscc_warehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
   ['stock_beh_warehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
   ['stock_mscc_werehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
   ['stock_beh_werehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
-  ['stock_mscc.csv|06', 'คลังฝาก MSCC'],
   ['stock_mscc_warehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
   ['stock_beh_warehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
   ['stock_mscc_werehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
   ['stock_beh_werehouse.csv|07', 'เบ๊จอง คลังเพชรบุรีฯ'],
   ['stock_beh_warehouse.csv|08', 'Mscc จอง คลังเพชรบุรีฯ'],
   ['stock_beh_werehouse.csv|08', 'Mscc จอง คลังเพชรบุรีฯ'],
-].forEach(([key, label]) => DEFAULT_DISPLAY_LABELS.set(key, label));
+]);
 
 function parseCsv(text) {
   const rows = [];

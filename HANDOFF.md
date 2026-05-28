@@ -1,8 +1,8 @@
 # MSCC Work Handoff
 
-เอกสารนี้ไว้เปิดตอนย้ายไปทำงานต่อที่คอมร้าน เพื่อกันหลง repo, token, encoding และชื่อไฟล์ CSV
+เอกสารนี้ไว้เปิดตอนย้ายไปทำงานต่อที่คอมร้าน เพื่อกันหลง repo, token, encoding, ชื่อไฟล์ CSV และสถานะ UI ล่าสุด
 
-## ตอนนี้อะไรคือ live
+## ตอนนี้อะไรคือ Live
 
 - Live app repo: `paphavinmusicconcept-prog/mscc-check`
 - Stock data repo: `paphavinmusicconcept-prog/mscc-stock-data`
@@ -23,7 +23,20 @@
 - ตรวจ encoding และแปลงเป็น UTF-8 ก่อน commit
 - Commit CSV เข้า `mscc-stock-data`
 - หน้า search แสดงเวลาอัปเดตล่าสุด
-- Cache ข้อมูลเพื่อไม่ให้หน้าเว็บช้าเพราะยิง GitHub ทุก request
+- Cache ข้อมูลเพื่อไม่ให้ยิง GitHub ทุก request
+
+## หน้า Search ล่าสุด
+
+- ใช้โทนสีจาก palette: `#e63946`, `#f1faee`, `#a8dadc`, `#457b9d`, `#1d3557`
+- Header ใช้โลโก้ Bigtone จากไฟล์ local `assets/bigtone-logo-transparent.png`
+- เวลา `อัปเดต` ควรอิงเวลาที่ commit สำเร็จจาก admin upload
+- ถ้าไม่มี metadata จาก admin upload ให้ fallback เป็นเวลา commit ล่าสุดของไฟล์ CSV บน GitHub
+- ผลลัพธ์หลายรายการเป็น scroll ยาว ไม่ใช้ปุ่มเลขหน้าแล้ว
+- ใช้ lazy load เพิ่มรายการเมื่อเลื่อนถึงปุ่ม/จุดโหลดด้านล่าง
+- บนมือถือ summary อยู่ก่อนรายละเอียดคลัง
+- Layout summary บนมือถือเป็น 2+1:
+  - แถวแรก: `Available Stock` และ `SKU`
+  - แถวสอง: `ชื่อสินค้า`
 
 ## ชื่อไฟล์ CSV ที่ถูกต้อง
 
@@ -123,10 +136,10 @@ node server.js
 
 ```text
 คลังเบ๊
-คลังสำนักงานเพชรบุรีตัดใหม่
+คลังสำนักงานใหญ่เพชรบุรีตัดใหม่
 ```
 
-ถ้าเห็น `à¸...` หรือ `Ã...` แปลว่ายังมี mojibake อยู่
+ถ้าเห็นข้อความไทยเป็นตัวเพี้ยน แปลว่ายังมี mojibake อยู่ ต้องกลับไปเช็ค source CSV, encoding decode หรือ fallback label
 
 ## จุดที่เคยพลาด
 
@@ -135,6 +148,7 @@ node server.js
 - PowerShell set token ผิดรูปแบบ
 - ข้อความไทยใน `DEFAULT_DISPLAY_LABELS` เคยเป็นภาษาต่างดาว
 - เคยเผลอ update `server.js` ด้วย placeholder ผ่าน GitHub connector แล้ว rollback แล้ว
+- อย่า commit ไฟล์ screenshot preview เช่น `search-mobile*.png` หรือ `search-desktop*.png`
 
 ## Model ที่แนะนำ
 
