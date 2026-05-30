@@ -506,7 +506,7 @@
 
     function renderResult(data) {
       setSourceBadge(data.source || initialSource);
-      setUpdatedBadge(data.updated_at ? new Date(data.updated_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : initialUpdatedAt);
+      setUpdatedBadge(   data.updated_at     ? new Date(data.updated_at).toLocaleString('th-TH', {         timeZone: 'Asia/Bangkok',         dateStyle: 'medium',         timeStyle: 'short'       })     : initialUpdatedAt );
       if (data.matches && data.matches.length > 1) {
         const total = Number(data.total_matches || data.matches.length);
         const shown = Number(data.shown_matches || data.matches.length);
