@@ -555,7 +555,7 @@ async function refreshIfNeeded(force = false) {
 
 function renderIndex({ sku = '', result = null, error = '', source = CSV_SOURCE }) {
   const sourceLabel = source === 'github' ? 'GitHub' : 'Local';
-  const updatedAt = cache.stockUpdatedAt ? new Date(cache.stockUpdatedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
+  const updatedAt = cache.stockUpdatedAt   ? new Date(cache.stockUpdatedAt).toLocaleString('th-TH', {       timeZone: 'Asia/Bangkok',       dateStyle: 'medium',       timeStyle: 'short'     })   : '-'; cache.stockUpdatedAt ? new Date(cache.stockUpdatedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
   const liffId = String(process.env.LIFF_ID || '').trim();
   return INDEX_HTML
     .replaceAll('%%INITIAL_SKU%%', escapeHtml(sku))
@@ -1051,7 +1051,7 @@ async function handleAdmin(req, res, url) {
       if (!preview) throw new Error('Preview expired. Please upload the 4 CSV files again.');
       const metadata = await commitValidatedStockFiles(preview.files);
       previewStore.delete(previewId);
-      const updatedAt = new Date(metadata.uploaded_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+      const updatedAt = cache.stockUpdatedAt   ? new Date(cache.stockUpdatedAt).toLocaleString('th-TH', {       timeZone: 'Asia/Bangkok',       dateStyle: 'medium',       timeStyle: 'short'     })   : '-'; new Date(metadata.uploaded_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
       const summary = metadata.files.map((file) => `${file.name}: ${file.rows} rows, ${file.skus} SKUs, ${file.encoding}`).join('\n');
       res.writeHead(303, { Location: `/admin?message=${encodeURIComponent(`Updated ${ALLOWED_STOCK_FILES.length} files at ${updatedAt}\n${summary}`)}` });
       res.end();
