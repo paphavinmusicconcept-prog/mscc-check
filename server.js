@@ -90,7 +90,7 @@ const GITHUB_DATA_PATHS = (process.env.GITHUB_DATA_PATHS || ALLOWED_STOCK_FILES.
 
 const DEFAULT_DISPLAY_LABELS = new Map([
   ['stock_beh_hq.csv|BEH', 'คลังเบ๊'],
-  ['stock_mscc.csv|MSCC', 'คลังมิวสิคคอนเซพท์'],
+  ['stock_mscc.csv|MSCC', 'คลังมิวสิกคอนเซพท์'],
   ['stock_mscc.csv|06', 'คลังฝาก MSCC'],
   ['stock_mscc_warehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
   ['stock_beh_warehouse.csv|04', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
