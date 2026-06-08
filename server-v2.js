@@ -33,7 +33,7 @@ const DATA_REPO = String(process.env.DATA_REPO || 'paphavinmusicconcept-prog/msc
 const DATA_BRANCH = String(process.env.DATA_BRANCH || 'main');
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES || 15 * 1024 * 1024);
 const STOCK_METADATA_PATH = 'data/stock-upload-meta.json';
-const STOCK_FILES = ['stock_mscc.CSV', 'stock_mscc_werehouse.CSV', 'stock_beh_hq.CSV', 'stock_beh_werehouse.CSV'];
+const STOCK_FILES = ['stock_mscc.CSV', 'stock_mscc_warehouse.CSV', 'stock_beh_hq.CSV', 'stock_beh_warehouse.CSV'];
 const GITHUB_DATA_PATHS = (process.env.GITHUB_DATA_PATHS || STOCK_FILES.map((file) => `data/${file}`).join(','))
   .split(',')
   .map((file) => file.trim())
@@ -52,12 +52,12 @@ const SECTION_META = {
 const DISPLAY_WAREHOUSES = new Map([
   ['stock_beh_hq.csv|01|คลังเบ๊', 'คลังเบ๊'],
   ['stock_mscc.csv|01|คลังมิวสิคคอนเซพท์', 'คลังมิวสิคคอนเซพท์'],
-  ['stock_mscc_werehouse.csv|04|คลังสำนักงานเพชรบุรีตัดใหม่', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
-  ['stock_beh_werehouse.csv|04|คลังสำนักงานเพชรบุรีตัดใหม่', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
+  ['stock_mscc_warehouse.csv|04|คลังสำนักงานเพชรบุรีตัดใหม่', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
+  ['stock_beh_warehouse.csv|04|คลังสำนักงานเพชรบุรีตัดใหม่', 'คลังสำนักงานเพชรบุรีตัดใหม่'],
   ['stock_mscc.csv|06|คลังฝาก มิวสิคคอนเซพท์ - สนง.เพชรบุรี', 'คลังฝาก MSCC'],
-  ['stock_mscc_werehouse.csv|07|เบ๊จองสินค้า-เพชรบุรีฯ', 'เบ๊จอง คลังเพชรบุรีฯ'],
-  ['stock_beh_werehouse.csv|07|เบ๊จอง สินค้าคลังเพชรบุรีฯ', 'เบ๊จอง คลังเพชรบุรีฯ'],
-  ['stock_beh_werehouse.csv|08|มิวสิคจอง สินค้าคลังเพชรบุรีฯ', 'Mscc จอง คลังเพชรบุรีฯ'],
+  ['stock_mscc_warehouse.csv|07|เบ๊จองสินค้า-เพชรบุรีฯ', 'เบ๊จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_warehouse.csv|07|เบ๊จอง สินค้าคลังเพชรบุรีฯ', 'เบ๊จอง คลังเพชรบุรีฯ'],
+  ['stock_beh_warehouse.csv|08|มิวสิคจอง สินค้าคลังเพชรบุรีฯ', 'Mscc จอง คลังเพชรบุรีฯ'],
 ]);
 
 function escapeHtml(value) {
