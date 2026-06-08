@@ -467,14 +467,14 @@
           return warehouses.map((warehouse) => `
             <div class="warehouse-row">
               <strong>${escapeHtml(branch.branch || '-')} · ${escapeHtml(warehouse.warehouse || '-')}</strong>
-              <span>${Number(warehouse.stock || 0)} ตัว</span>
+              <span>${Number(warehouse.stock || 0)} ${escapeHtml(warehouse.unit || branch.unit || 'ตัว')}</span>
             </div>
           `);
         }
         return `
           <div class="warehouse-row">
             <strong>${escapeHtml(branch.branch || '-')} · ${escapeHtml(branch.warehouse || '-')}</strong>
-            <span>${Number(branch.stock || 0)} ตัว</span>
+            <span>${Number(branch.stock || 0)} ${escapeHtml(branch.unit || 'ตัว')}</span>
           </div>
         `;
       });
@@ -499,7 +499,7 @@
 
     function renderStockChips(items) {
       const chips = (items || []).map((branch) => `
-        <div class="stock-chip">${escapeHtml(stockLabel(branch))}: ${Number(branch.stock || 0)} ตัว</div>
+        <div class="stock-chip">${escapeHtml(stockLabel(branch))}: ${Number(branch.stock || 0)} ${escapeHtml(branch.unit || 'ตัว')}</div>
       `);
       return chips.join('') || '<div class="stock-chip">ไม่มีสต็อก</div>';
     }
@@ -535,7 +535,7 @@
       nameValue.className = 'value name-card';
       skuValue.textContent = data.sku || '-';
       nameValue.textContent = data.name || '-';
-      availableStock.textContent = `${Number(data.available_stock || 0)} ตัว`;
+      availableStock.textContent = `${Number(data.available_stock || 0)} ${data.unit || 'ตัว'}`;
       resultSlot.innerHTML = `
         <div class="status ok">พบสินค้า</div>
         <div class="result-card">

@@ -165,6 +165,53 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function cleanText(value) {
+  return String(value ?? '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanProductName(value) {
+  let name = cleanText(value);
+  const units = 'ตัว|ใบ|อัน|ชิ้น|ชุด|เส้น|เครื่อง|กล่อง|ตู้|ผืน|หลอด|คู่';
+
+  name = name.replace(new RegExp(`([^\\s,;])(["']?)[,;]{2,}\\s*\\d+\\s*["']?\\s*,?\\s*["']?\\s*(?:${units})\\s*$`, 'i'), '$1$2');
+  name = name.replace(new RegExp(`([^\\s,;])(["']?)(?:,""|\\s*,\\s*){2,}\\s*\\d+\\s*,?\\s*["']?\\s*(?:${units})["']?\\s*(?:,.*)?$`, 'i'), '$1$2');
+  name = name.replace(new RegExp(`\\s+\\d+\\s*["']?\\s*(?:${units})\\s*$`, 'i'), '');
+  name = name.replace(/[;,]+$/g, '').trim();
+  name = name.replace(/"{2,}/g, '"');
+
+  return name.trim();
+}
+
+function parseExpressStockLine(line) {
+  const text = String(line || '').trim();
+  const start = text.match(/^\s*(?:"[^"]*",){3}"(?<sku>[^"]*)","(?<body>.*)$/);
+  if (!start?.groups) return null;
+
+  const body = start.groups.body.match(/^(?<name>.*?)(?:,""){5},(?<qty>[^,]*),"(?<unit>[^"]*)"/i);
+  if (!body?.groups) return null;
+
+  const row = [];
+  row[3] = start.groups.sku;
+  row[4] = body.groups.name;
+  row[10] = body.groups.qty;
+  row[11] = body.groups.unit;
+  return row;
+}
+
+function parseStockRows(text) {
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => parseExpressStockLine(line) || parseCsv(line)[0] || []);
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -204,7 +251,7 @@ function getDisplayLabel(filePath, section) {
 }
 
 function loadInventoryFromText(text, filePath = '') {
-  const rows = parseCsv(text);
+  const rows = parseStockRows(text);
   const items = [];
   let section = getSectionMeta('01', '', filePath);
   for (const row of rows) {
@@ -218,12 +265,13 @@ function loadInventoryFromText(text, filePath = '') {
     if (!label) continue;
     items.push({
       sku,
-      name: String(row[4] || '').trim(),
+      name: cleanProductName(row[4]),
       branch: section.branch,
       warehouse: section.warehouse,
       label,
       source_file: path.basename(filePath),
       stock: toNumber(row[10]),
+      unit: cleanText(row[11] || 'ตัว'),
     });
   }
   return items;
@@ -256,7 +304,7 @@ function repairLatin1Mojibake(text) {
 }
 
 function scoreDecodedCsv(text, filePath) {
-  const rows = parseCsv(text);
+  const rows = parseStockRows(text);
   const inventory = loadInventoryFromText(text, filePath);
   const skuRows = rows.filter((row) => /^[A-Z0-9][A-Z0-9\-_.]{2,}$/.test(normalizeSku(row[3]))).length;
   return {
@@ -453,7 +501,7 @@ function buildCatalog(items) {
     if (!bySku.has(item.sku)) bySku.set(item.sku, { sku: item.sku, name: item.name, entries: [] });
     const product = bySku.get(item.sku);
     if (!product.name && item.name) product.name = item.name;
-    product.entries.push({ branch: item.branch, warehouse: item.warehouse, label: item.label, stock: item.stock });
+    product.entries.push({ branch: item.branch, warehouse: item.warehouse, label: item.label, stock: item.stock, unit: item.unit });
   }
   return bySku;
 }
@@ -463,9 +511,10 @@ function summarize(product) {
   let available_stock = 0;
   for (const entry of product.entries) {
     available_stock += entry.stock;
-    branches.push({ branch: entry.branch, warehouse: entry.warehouse, label: entry.label, stock: entry.stock });
+    branches.push({ branch: entry.branch, warehouse: entry.warehouse, label: entry.label, stock: entry.stock, unit: entry.unit });
   }
-  return { mode: 'exact', sku: product.sku, name: product.name, available_stock, branches };
+  const units = [...new Set(branches.map((branch) => branch.unit).filter(Boolean))];
+  return { mode: 'exact', sku: product.sku, name: product.name, available_stock, unit: units.length === 1 ? units[0] : 'ตัว', branches };
 }
 
 function paginateMatches(matches, mode, query, page) {
