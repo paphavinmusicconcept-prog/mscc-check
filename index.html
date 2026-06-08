@@ -420,7 +420,7 @@
       name = name.replace(new RegExp(`([^\\s,;])(["']?)[,;]{2,}\\s*\\d+\\s*["']?\\s*,?\\s*["']?\\s*(?:${units})\\s*$`, 'i'), '$1$2');
       name = name.replace(new RegExp(`([^\\s,;])(["']?)(?:,""|\\s*,\\s*){2,}\\s*\\d+\\s*,?\\s*["']?\\s*(?:${units})["']?\\s*(?:,.*)?$`, 'i'), '$1$2');
       name = name.replace(new RegExp(`\\s+\\d+\\s*["']?\\s*(?:${units})\\s*$`, 'i'), '');
-      return name.replace(/[;,]+$/g, '').replace(/"{2,}/g, '"').trim();
+      return name.replace(/[;,]+$/g, '').replace(/"{2,}/g, '"').replace(/([^0-9])"$/g, '$1').trim();
     }
 
     function renderEmpty(message) {

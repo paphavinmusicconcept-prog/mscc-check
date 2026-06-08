@@ -183,6 +183,7 @@ function cleanProductName(value) {
   name = name.replace(new RegExp(`\\s+\\d+\\s*["']?\\s*(?:${units})\\s*$`, 'i'), '');
   name = name.replace(/[;,]+$/g, '').trim();
   name = name.replace(/"{2,}/g, '"');
+  name = name.replace(/([^0-9])"$/g, '$1');
 
   return name.trim();
 }
