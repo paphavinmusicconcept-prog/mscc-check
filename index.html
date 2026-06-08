@@ -409,6 +409,20 @@
         .replace(/'/g, '&#39;');
     }
 
+    function cleanDisplayProductName(value) {
+      let name = String(value ?? '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[“”]/g, '"')
+        .replace(/[‘’]/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+      const units = 'ตัว|ใบ|อัน|ชิ้น|ชุด|เส้น|เครื่อง|กล่อง|ตู้|ผืน|หลอด|คู่';
+      name = name.replace(new RegExp(`([^\\s,;])(["']?)[,;]{2,}\\s*\\d+\\s*["']?\\s*,?\\s*["']?\\s*(?:${units})\\s*$`, 'i'), '$1$2');
+      name = name.replace(new RegExp(`([^\\s,;])(["']?)(?:,""|\\s*,\\s*){2,}\\s*\\d+\\s*,?\\s*["']?\\s*(?:${units})["']?\\s*(?:,.*)?$`, 'i'), '$1$2');
+      name = name.replace(new RegExp(`\\s+\\d+\\s*["']?\\s*(?:${units})\\s*$`, 'i'), '');
+      return name.replace(/[;,]+$/g, '').replace(/"{2,}/g, '"').trim();
+    }
+
     function renderEmpty(message) {
       skuValue.className = 'value';
       nameValue.className = 'value';
@@ -420,10 +434,11 @@
     }
 
     function renderMatchCard(item) {
+      const productName = cleanDisplayProductName(item.name || '-');
       return `
         <div class="result-card">
           <div class="result-sku">${escapeHtml(item.sku || '-')}</div>
-          <div class="result-name">${escapeHtml(item.name || '-')}</div>
+          <div class="result-name">${escapeHtml(productName || '-')}</div>
           <div class="stock-chips">${renderStockChips(item.branches || [])}</div>
         </div>
       `;
@@ -534,13 +549,13 @@
       skuValue.className = 'value sku-card';
       nameValue.className = 'value name-card';
       skuValue.textContent = data.sku || '-';
-      nameValue.textContent = data.name || '-';
+      nameValue.textContent = cleanDisplayProductName(data.name || '-') || '-';
       availableStock.textContent = `${Number(data.available_stock || 0)} ${data.unit || 'ตัว'}`;
       resultSlot.innerHTML = `
         <div class="status ok">พบสินค้า</div>
         <div class="result-card">
           <div class="result-sku">${escapeHtml(data.sku || '-')}</div>
-          <div class="result-name">${escapeHtml(data.name || '-')}</div>
+          <div class="result-name">${escapeHtml(cleanDisplayProductName(data.name || '-') || '-')}</div>
           <div class="stock-chips">${renderStockChips(data.branches || [])}</div>
         </div>
         ${(data.branches || []).length ? '' : '<div class="meta">ไม่มีรายละเอียดคลัง</div>'}

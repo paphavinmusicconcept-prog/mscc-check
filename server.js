@@ -498,9 +498,10 @@ async function commitGitHubFiles(files, message) {
 function buildCatalog(items) {
   const bySku = new Map();
   for (const item of items) {
-    if (!bySku.has(item.sku)) bySku.set(item.sku, { sku: item.sku, name: item.name, entries: [] });
+    const itemName = cleanProductName(item.name);
+    if (!bySku.has(item.sku)) bySku.set(item.sku, { sku: item.sku, name: itemName, entries: [] });
     const product = bySku.get(item.sku);
-    if (!product.name && item.name) product.name = item.name;
+    if (!product.name && itemName) product.name = itemName;
     product.entries.push({ branch: item.branch, warehouse: item.warehouse, label: item.label, stock: item.stock, unit: item.unit });
   }
   return bySku;
@@ -514,7 +515,7 @@ function summarize(product) {
     branches.push({ branch: entry.branch, warehouse: entry.warehouse, label: entry.label, stock: entry.stock, unit: entry.unit });
   }
   const units = [...new Set(branches.map((branch) => branch.unit).filter(Boolean))];
-  return { mode: 'exact', sku: product.sku, name: product.name, available_stock, unit: units.length === 1 ? units[0] : 'ตัว', branches };
+  return { mode: 'exact', sku: product.sku, name: cleanProductName(product.name), available_stock, unit: units.length === 1 ? units[0] : 'ตัว', branches };
 }
 
 function paginateMatches(matches, mode, query, page) {
